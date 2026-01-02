@@ -1,0 +1,37 @@
+[
+    {
+        "id": "titan",
+        "name": "Titan Heavy Industries",
+        "description": "Soviet Heavy Industry, Cast Iron, Red Warning.",
+        "design_language": "Soviet heavy industry aesthetic, bulky cast iron grey structures, red warning paint, thick visible rivets, brutalist silhouette.",
+        "color_palette": "Cast Iron Grey, Red Warning Paint, Oil Black"
+    },
+    {
+        "id": "vector",
+        "name": "Vector Dynamics",
+        "description": "Modern Military, Matte White, Engineering Blue.",
+        "design_language": "Modern tactical military aesthetic, sleek matte white finish, engineering blue glowing elements, modular rail systems, clean lines.",
+        "color_palette": "Matte White, Engineering Blue Glow, Tactical Grey"
+    },
+    {
+        "id": "helios",
+        "name": "Helios Optronics",
+        "description": "Aristocratic Tech, Ceramic White, Gold, Purple.",
+        "design_language": "Aristocratic high-tech aesthetic, pristine ceramic white surfaces, elegant gold trim, royal purple energy signatures, artistic curves.",
+        "color_palette": "Ceramic White, Gold Trim, Royal Purple"
+    },
+    {
+        "id": "vulture",
+        "name": "Vulture Works",
+        "description": "Wasteland Junk, Rust, Graffiti, Asymmetrical.",
+        "design_language": "Scavenger wasteland aesthetic, rusted asymmetrical metal plating, graffiti markings, exposed wiring, improvised welds.",
+        "color_palette": "Rusted Metal, Hazard Orange, Graffiti Paint"
+    },
+    {
+        "id": "aether",
+        "name": "Aether Science",
+        "description": "Ancient Relic, Black Geometry, Red/Black Particles.",
+        "design_language": "Ancient relic aesthetic, monolithic black geometry, red/black particle effects, seamless screwless construction, defying physics.",
+        "color_palette": "Monolithic Black, Red/Black Particles, Void Darkness"
+    }
+]
