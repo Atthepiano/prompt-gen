@@ -26,8 +26,16 @@ class PromptApp:
         self.selected_image_path = None
         self.preview_image = None # Keep reference
         
+        # Slicer variables
+        self.selected_image_path = None
+        self.preview_image = None # Keep reference
+        
         # Slicer Smart Naming
         self.slicer_csv_path = ig.DEFAULT_CSV_PATH # Default to item_test.csv
+        
+        # Item Prompt Variables
+        self.item_csv_path = ig.DEFAULT_CSV_PATH
+        self.var_cache_translation = tk.BooleanVar(value=True) # Unified cache option
 
         # --- Layout ---
         # Main Layout: Left (Controls), Right (Output)
@@ -160,8 +168,18 @@ class PromptApp:
         
         ttk.Label(parent, text="Item Icon Generation", font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
         
-        explanation = ("Generates a prompt for a 8x8 sprite sheet (64 items) from 'iconcsv/item_test.csv'.")
+        explanation = ("Generates a prompt for a 8x8 sprite sheet (64 items) from the selected CSV.")
         ttk.Label(parent, text=explanation, wraplength=380).pack(anchor="w", pady=(0, 10))
+
+        # CSV Selection for Item Prompt
+        frame_csv_item = ttk.Frame(parent)
+        frame_csv_item.pack(fill=tk.X, pady=(0, 10))
+        
+        self.btn_select_item_csv = ttk.Button(frame_csv_item, text="Select CSV...", command=self.select_csv_for_item, width=15)
+        self.btn_select_item_csv.pack(side=tk.LEFT)
+        
+        self.lbl_selected_item_csv = ttk.Label(frame_csv_item, text=os.path.basename(self.item_csv_path), foreground="blue")
+        self.lbl_selected_item_csv.pack(side=tk.LEFT, padx=5)
 
         # Check for CSV existence
         if os.path.exists(ig.DEFAULT_CSV_PATH):
@@ -178,7 +196,10 @@ class PromptApp:
         
         # Translation Checkbox
         self.var_translate_prompt = tk.BooleanVar(value=True)
-        ttk.Checkbutton(parent, text="Auto-Translate Content to English (Recommended)", variable=self.var_translate_prompt).pack(anchor="w", pady=(0, 20))
+        ttk.Checkbutton(parent, text="Auto-Translate Content to English (Recommended)", variable=self.var_translate_prompt).pack(anchor="w", pady=(0, 5))
+        
+        # Cache Checkbox
+        ttk.Checkbutton(parent, text="Write Translation Result into CSV (Cache)", variable=self.var_cache_translation).pack(anchor="w", pady=(0, 20))
 
         # Generate Button for Tab 2
         # Point to Threaded version
@@ -210,6 +231,35 @@ class PromptApp:
         self.var_translate_filename = tk.BooleanVar(value=True)
         self.cb_trans_file = ttk.Checkbutton(parent, text="Auto-Translate Filenames (ZH -> EN)", variable=self.var_translate_filename)
         self.cb_trans_file.pack(anchor="w", padx=(20, 0))
+        
+        # Cache Checkbox (Mirrored)
+        self.cb_cache_file = ttk.Checkbutton(parent, text="Write Result into CSV (Cache)", variable=self.var_cache_translation)
+        self.cb_cache_file.pack(anchor="w", padx=(20, 0), pady=(2,0))
+        
+        # Toggle Background Removal
+        self.var_remove_bg = tk.BooleanVar(value=False)
+        
+        # Check rembg availability - Checking for VENV instead of local import
+        venv_exists = False
+        try:
+             workspace_dir = os.getcwd()
+             venv_python = os.path.join(workspace_dir, ".venv_rembg", "Scripts", "python.exe")
+             if os.path.exists(venv_python):
+                 venv_exists = True
+        except:
+             pass
+
+        bg_text = "Remove Background (Uses separate Python 3.10 environment)"
+        if not venv_exists:
+            bg_text += " [Setup Required - Run setup_env.bat]"
+            
+        self.cb_remove_bg = ttk.Checkbutton(parent, text=bg_text, variable=self.var_remove_bg)
+        self.cb_remove_bg.pack(anchor="w", pady=(5, 0))
+        
+        # Always enable, but warn in text if missing
+        if not venv_exists:
+             self.cb_remove_bg.config(state=tk.NORMAL) # Let user try it or see warning
+
         
         # CSV Selection
         frame_csv = ttk.Frame(parent)
@@ -254,12 +304,20 @@ class PromptApp:
             self.slicer_csv_path = filepath
             self.lbl_selected_csv.config(text=os.path.basename(filepath))
 
+    def select_csv_for_item(self):
+        filepath = filedialog.askopenfilename(title="Select Item CSV", filetypes=[("CSV Files", "*.csv")])
+        if filepath:
+            self.item_csv_path = filepath
+            self.lbl_selected_item_csv.config(text=os.path.basename(filepath))
+
     def toggle_smart_naming(self):
         if self.var_use_csv_naming.get():
             self.cb_trans_file.config(state=tk.NORMAL)
+            self.cb_cache_file.config(state=tk.NORMAL)
             self.btn_select_csv.config(state=tk.NORMAL)
         else:
             self.cb_trans_file.config(state=tk.DISABLED)
+            self.cb_cache_file.config(state=tk.DISABLED)
             self.btn_select_csv.config(state=tk.DISABLED)
 
     def set_ui_busy(self, busy=True, message="Processing..."):
@@ -286,15 +344,18 @@ class PromptApp:
         threading.Thread(target=self._generate_item_prompt_task, daemon=True).start()
 
     def _generate_item_prompt_task(self):
-        items = ig.read_items_from_csv(ig.DEFAULT_CSV_PATH)
+        items = ig.read_items_from_csv(self.item_csv_path)
         if not items:
             self.root.after(0, lambda: messagebox.showerror("Error", "Could not read items from CSV."))
             self.root.after(0, lambda: self.set_ui_busy(False, "Ready"))
             return
         
         do_translate = self.var_translate_prompt.get()
+        do_cache = self.var_cache_translation.get()
+        cache_path = self.item_csv_path if do_cache else None
+        
         try:
-            prompt = ig.generate_icon_grid_prompt(items, translate=do_translate)
+            prompt = ig.generate_icon_grid_prompt(items, translate=do_translate, cache_path=cache_path)
             self.root.after(0, lambda: self.set_output(prompt))
             self.root.after(0, lambda: self.set_ui_busy(False, "Prompt Generated Successfully"))
         except Exception as e:
@@ -315,7 +376,9 @@ class PromptApp:
         try:
             success, msg, count = st.slice_image(self.selected_image_path, 
                                                csv_path=csv_to_use, 
-                                               translate_mode=do_translate)
+                                               translate_mode=do_translate,
+                                               remove_bg=self.var_remove_bg.get(),
+                                               cache_mode=self.var_cache_translation.get())
             
             if success:
                 final_msg = f"{msg}\n\nGenerated {count} icons.\nCSV Used: {csv_to_use}\nTranslation: {do_translate}"
@@ -427,11 +490,26 @@ class PromptApp:
         messagebox.showinfo("Copied", "Prompt copied to clipboard!")
 
 if __name__ == "__main__":
-    root = tk.Tk()
     try:
-        root.tk.call('source', 'azure.tcl')
-    except:
-        pass
-        
-    app = PromptApp(root)
-    root.mainloop()
+        print("Starting Application...")
+        root = tk.Tk()
+        try:
+            root.tk.call('source', 'azure.tcl')
+        except:
+            pass
+            
+        print("Initializing App Logic...")
+        app = PromptApp(root)
+        print("Entering Main Loop...")
+        root.mainloop()
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        print(f"CRITICAL ERROR: {err_msg}")
+        with open("crash.log", "w") as f:
+            f.write(err_msg)
+        try:
+            messagebox.showerror("Critical Error", f"Application Crashing:\n{e}\n\nSee crash.log for details.")
+        except:
+            pass
+

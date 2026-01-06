@@ -58,9 +58,14 @@ class TranslationManager:
         # Execute concurrent requests for missing items
         # deep-translator's batch mode is sometimes just a loop, 
         # so using threads here gives us better control over concurrency.
+        # CRITICAL FIX: Create a NEW translator instance for each thread to avoid race conditions
+        # with internal state (which caused the "all ores = platinum_ore" bug).
+        def _translate_worker(text):
+            return GoogleTranslator(source='auto', target='en').translate(text)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_index = {
-                executor.submit(self.translator.translate, text): idx 
+                executor.submit(_translate_worker, text): idx 
                 for text, idx in zip(to_translate, indices_to_translate)
             }
             
