@@ -118,7 +118,11 @@ def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=
                     # Save back to CSV if we updated cache and it serves as our database
                     # NOTE: We only save if we actually translated something new AND cache is enabled
                     if changed and cache_mode:
-                         ig.save_items_to_csv(csv_path, items)
+                        if not ig.save_items_to_csv(csv_path, items):
+                            csv_warning = "Warning: Could not save translations to CSV. Check if file is open."
+                            print(csv_warning)
+
+                # Prepare final filename list
 
                 # Prepare final filename list
                 for item in items:
@@ -143,6 +147,14 @@ def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=
                 print(f"Warning: Failed to read/process CSV: {e}")
                 import traceback
                 traceback.print_exc()
+                
+        # Append warning if set
+        # We need a way to pass this warnings to the return. 
+        # But return is at the end of function.
+        # Let's verify we actually catch the error inside read_items loop or if it's outside.
+        # The entire CSV block is wrapped in try...except.
+        
+        if 'csv_warning' not in locals(): csv_warning = ""
         
         # Prepare output directory
         if not output_dir:
@@ -253,7 +265,11 @@ def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=
                 cell.save(save_path)
                 count += 1
                 
-        return True, f"Successfully sliced {count} icons to '{output_dir}'", count
+        msg = f"Successfully sliced {count} icons to '{output_dir}'"
+        if 'csv_warning' in locals() and csv_warning:
+            msg += f"\n\n{csv_warning}"
+            
+        return True, msg, count
 
     except Exception as e:
         return False, str(e), 0

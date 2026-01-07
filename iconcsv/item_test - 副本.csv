@@ -1,64 +1,64 @@
-﻿防弹背心,仅覆盖躯干核心，防实弹，四肢暴露。,bulletproof vest,
-软壳宇航服,臃肿、像羽绒服，廉价，防御力几乎为0，一旦被划破就漏气（致命）。,soft shell spacesuit,
-硬壳宇航服,带有刚性胸甲，能防小口径子弹和碎片。,hard shell space suit,
-外骨骼框架,裸露的液压支架包裹身体，大幅增加近战伤害和负重，但没有气密性,exoskeleton frame,
-防爆甲,极其厚重，原本是为了拆弹设计，现在用来当肉盾。,Explosion-proof armor,
-突击龙骨,专门为了登舰战设计，背部有磁力吸附装置，胸口有强化陶瓷板。,assault keel,
-动力甲,集成宇航服与重甲，自带维生系统，顶级装备。,Power armor,
-光学迷彩衣,低防御，高隐蔽。,Optical camouflage clothing,
-寄生甲,一团附着在身上的黑色金属，会自动修复使用者的伤口，但会缓慢消耗饥饿度。,parasitic beetle,
-生锈的铁管,钝器伤害，可能会让敌人感染破伤风。,rusty iron pipe,
-破拆斧,消防斧的太空版。用来砍开气密门，或者砍开敌人的动力甲,demolition ax,
-射钉枪,工业改装，动能低，打不死人但很疼，绝对安全不会打穿船体。,nail gun,
-采矿激光MK1,基础型采矿设备，效率一般。,Mining Laser MK1,
-热能匕首,刀刃通电加热，用于切割线路和轻甲。,Thermal Dagger,
-霰弹枪,在狭窄的飞船走廊里登舰战的神器。虽然古老，但极其实用。,shotgun,
-自动步枪,万金油武器。,automatic rifle,
-采矿激光MK3,高级采矿设备，采集效率大幅提升。,Mining Laser MK3,
-震荡锤,通过液压活塞打击，不会产生火花（防火），专门把人震晕。,Oscillating hammer,
-磁轨步枪,太空战标准武器。无后坐力（重要），高穿透。,rail rifle,
-单分子鞭,一条几乎看不见的细丝，甩过去切割一切，不仅是武器，也是处决工具。,single molecular whip,
-微波枪,锥形范围伤害，煮熟盔甲里的人，无视护甲，不伤船体。,microwave gun,
-纳米虫群手雷,扔出去后不是爆炸，而是释放一团吞噬金属和血肉的黑云。,Nano Swarm Grenade,
-等离子投射器,射不稳定的能量球，会爆炸，极度危险,plasma projector,
-作战靴,标准军用，平衡属性。,combat boots,
-磁力靴,经典标配。开启后免疫击飞，但移动缓慢，有独特的金属脚步声。,magnetic shoes,
-抓地鞋,鞋底是壁虎仿生材料，可以在光滑的无重力舱壁上奔跑。,traction shoes,
-喷气靴,脚后跟带微型喷口，增加闪避率，或者在太空中冲刺。,jet boots,
-伺服战靴,增加跳跃高度/减少跌落伤害。,Servo Boots,
-义体刀锋,没有脚，就是两根尖锐的金属刺。跑得快，踢人就是刺击伤害。,prosthetic blade,
-小挎包,不减属性，容量小。,small shoulder bag,
-大背包,容量大，减少战斗属性。,big backpack,
-硬壳箱,物品不会因战斗受损，容量中等。,hard shell case,
-弹药袋,增加装填速度。,ammo pouch,
-喷气背包,Z轴机动专用。,jetpack,
-护盾发生器,提供能量护盾。,shield generator,
-外挂电池,为能量武器或动力甲供电。,External battery,
-急救包,挂在腰上的快速治疗器具。,first aid kit,
-维生背包,增加氧气上限。如果是高级货，还能自动注射兴奋剂。,life support backpack,
-无人机挂架,背后挂一个小无人机，自动攻击或修理。,Drone rack,
-黑客甲板,像复古电脑键盘一样挂在腰间，用于远程破解炮塔或锁住敌人的门。,hacker deck,
-隐形力场,光学迷彩。,invisible force field,
-急救注射器,自动触发，濒死时打一针肾上腺素。,first aid syringe,
-万能接口,增加工程技能，允许快速拆卸废弃设施。,Universal interface,
-修理工具包,用于修复损坏的设备和船体，太空探险必备。,repair kit,
-医疗包,恢复宇航员生命值的医疗物品。,medical kit,
-紧急信标,在太空迷失时发出救援信号，可能会吸引未知的注意。,emergency beacon,
-氧气罐,为太空服提供额外的氧气储备。,oxygen tank,
-兴奋剂,短暂提高船员工作效率或移动速度。,doping,
-CO2 滤芯,活性炭过滤网，必须定期更换。,CO2 filter element,
-船体补漏剂,快速硬化的泡沫，紧急封堵缺口。,Hull leak sealant,
-电子破译芯片,(违禁品) 用于绕过海关或破解电子锁。,Electronic deciphering chip,
-钨芯穿甲弹,贫铀或钨芯弹头，专治重甲。,Tungsten core armor-piercing bullet,
-高爆炮弹,接触引爆的高爆弹药，对结构伤害大。,high explosive shells,
-20mm 实弹箱,标准的动能武器弹药。,20mm live ammunition box,
-激发介质罐,一个外壳布满划痕的增强型压力容器，表面喷涂着醒目的黄黑警示条纹。内部填充着极不稳定的氟氘混合气体（或类似的卤素激化剂）。,excitation medium tank,
-外星钥匙,据说能开启古老外星遗迹的大门，任务必需品。,alien key,
-导航数据,包含未知星系坐标的珍贵数据，任务物品。,navigation data,
-星际币,通用的星际贸易货币，在大多数太空站都能使用。,Star Coin,
-稀有金属锭,高价值的精炼金属，在某些独立星球作为货币使用。,rare metal ingot,
-感知阵列,头部不像人类头盔，而是插满了天线和复眼镜头，极高的侦察属性。,sensing array,sensing_array
-古代守卫头颅,从某种古代机器人身上硬拆下来的头，直接套在人类头上作为头盔，拥有无法解析的夜视和热感应功能。,ancient guard head,ancient_guard_head
-飞行夹克,皮革制，帅气，加士气，防御低。,flight jacket,flight_jacket
-连体工装,这种衣服全身都是兜，增加携带量和工作效率。,One piece work clothes,one_piece_work_clothes
-磁力背心,带有磁吸点，可以吸附工具或武器，减少切换装备时间。,magnetic vest,magnetic_vest
+﻿防弹背心,仅覆盖躯干核心，防实弹，四肢暴露。,,bulletproof_vest
+软壳宇航服,臃肿、像羽绒服，廉价，防御力几乎为0，一旦被划破就漏气（致命）。,,soft_shell_spacesuit
+硬壳宇航服,带有刚性胸甲，能防小口径子弹和碎片。,,hard_shell_space_suit
+外骨骼框架,裸露的液压支架包裹身体，大幅增加近战伤害和负重，但没有气密性,,exoskeleton_frame
+防爆甲,极其厚重，原本是为了拆弹设计，现在用来当肉盾。,,explosion-proof_armor
+突击龙骨,专门为了登舰战设计，背部有磁力吸附装置，胸口有强化陶瓷板。,,assault_keel
+动力甲,集成宇航服与重甲，自带维生系统，顶级装备。,,power_armor
+光学迷彩衣,低防御，高隐蔽。,,optical_camouflage_clothing
+寄生甲,一团附着在身上的黑色金属，会自动修复使用者的伤口，但会缓慢消耗饥饿度。,,parasitic_beetle
+生锈的铁管,钝器伤害，可能会让敌人感染破伤风。,,rusty_iron_pipe
+破拆斧,消防斧的太空版。用来砍开气密门，或者砍开敌人的动力甲,,demolition_ax
+射钉枪,工业改装，动能低，打不死人但很疼，绝对安全不会打穿船体。,,nail_gun
+采矿激光MK1,基础型采矿设备，效率一般。,,mining_laser_mk1
+热能匕首,刀刃通电加热，用于切割线路和轻甲。,,thermal_dagger
+霰弹枪,在狭窄的飞船走廊里登舰战的神器。虽然古老，但极其实用。,,shotgun
+自动步枪,万金油武器。,,automatic_rifle
+采矿激光MK3,高级采矿设备，采集效率大幅提升。,,mining_laser_mk3
+震荡锤,通过液压活塞打击，不会产生火花（防火），专门把人震晕。,,oscillating_hammer
+磁轨步枪,太空战标准武器。无后坐力（重要），高穿透。,,rail_rifle
+单分子鞭,一条几乎看不见的细丝，甩过去切割一切，不仅是武器，也是处决工具。,,single_molecular_whip
+微波枪,锥形范围伤害，煮熟盔甲里的人，无视护甲，不伤船体。,,microwave_gun
+纳米虫群手雷,扔出去后不是爆炸，而是释放一团吞噬金属和血肉的黑云。,,nano_swarm_grenade
+等离子投射器,射不稳定的能量球，会爆炸，极度危险,,plasma_projector
+作战靴,标准军用，平衡属性。,,combat_boots
+磁力靴,经典标配。开启后免疫击飞，但移动缓慢，有独特的金属脚步声。,,magnetic_shoes
+抓地鞋,鞋底是壁虎仿生材料，可以在光滑的无重力舱壁上奔跑。,,traction_shoes
+喷气靴,脚后跟带微型喷口，增加闪避率，或者在太空中冲刺。,,error_504_(server_error)!!1504.that’s_an_error.there_was_an_error._please_try_again_later.that’s_all_we_know.
+伺服战靴,增加跳跃高度/减少跌落伤害。,,servo_boots
+义体刀锋,没有脚，就是两根尖锐的金属刺。跑得快，踢人就是刺击伤害。,,error_504_(server_error)!!1504.that’s_an_error.there_was_an_error._please_try_again_later.that’s_all_we_know.
+小挎包,不减属性，容量小。,,small_shoulder_bag
+大背包,容量大，减少战斗属性。,,big_backpack
+硬壳箱,物品不会因战斗受损，容量中等。,,hard_shell_case
+弹药袋,增加装填速度。,,ammo_pouch
+喷气背包,Z轴机动专用。,,jetpack
+护盾发生器,提供能量护盾。,,shield_generator
+外挂电池,为能量武器或动力甲供电。,,external_battery
+急救包,挂在腰上的快速治疗器具。,,first_aid_kit
+维生背包,增加氧气上限。如果是高级货，还能自动注射兴奋剂。,,life_support_backpack
+无人机挂架,背后挂一个小无人机，自动攻击或修理。,,drone_rack
+黑客甲板,像复古电脑键盘一样挂在腰间，用于远程破解炮塔或锁住敌人的门。,,hacker_deck
+隐形力场,光学迷彩。,,invisible_force_field
+急救注射器,自动触发，濒死时打一针肾上腺素。,,first_aid_syringe
+万能接口,增加工程技能，允许快速拆卸废弃设施。,,universal_interface
+修理工具包,用于修复损坏的设备和船体，太空探险必备。,,repair_kit
+医疗包,恢复宇航员生命值的医疗物品。,,medical_kit
+紧急信标,在太空迷失时发出救援信号，可能会吸引未知的注意。,,emergency_beacon
+氧气罐,为太空服提供额外的氧气储备。,,oxygen_tank
+兴奋剂,短暂提高船员工作效率或移动速度。,,doping
+CO2 滤芯,活性炭过滤网，必须定期更换。,,co2_filter_element
+船体补漏剂,快速硬化的泡沫，紧急封堵缺口。,,hull_leak_sealant
+电子破译芯片,(违禁品) 用于绕过海关或破解电子锁。,,electronic_deciphering_chip
+钨芯穿甲弹,贫铀或钨芯弹头，专治重甲。,,tungsten_core_armor-piercing_bullet
+高爆炮弹,接触引爆的高爆弹药，对结构伤害大。,,high_explosive_shells
+20mm 实弹箱,标准的动能武器弹药。,,20mm_live_ammunition_box
+激发介质罐,一个外壳布满划痕的增强型压力容器，表面喷涂着醒目的黄黑警示条纹。内部填充着极不稳定的氟氘混合气体（或类似的卤素激化剂）。,,excitation_medium_tank
+外星钥匙,据说能开启古老外星遗迹的大门，任务必需品。,,alien_key
+导航数据,包含未知星系坐标的珍贵数据，任务物品。,,navigation_data
+星际币,通用的星际贸易货币，在大多数太空站都能使用。,,star_coin
+稀有金属锭,高价值的精炼金属，在某些独立星球作为货币使用。,,rare_metal_ingot
+感知阵列,头部不像人类头盔，而是插满了天线和复眼镜头，极高的侦察属性。,,sensing_array
+古代守卫头颅,从某种古代机器人身上硬拆下来的头，直接套在人类头上作为头盔，拥有无法解析的夜视和热感应功能。,,ancient_guard_head
+飞行夹克,皮革制，帅气，加士气，防御低。,,flight_jacket
+连体工装,这种衣服全身都是兜，增加携带量和工作效率。,,one_piece_work_clothes
+磁力背心,带有磁吸点，可以吸附工具或武器，减少切换装备时间。,,magnetic_vest

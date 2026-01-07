@@ -30,7 +30,7 @@ class TranslationManager:
             print(f"Translation Error for '{text}': {e}")
             return text
 
-    def translate_list(self, text_list, max_workers=5):
+    def translate_list(self, text_list, max_workers=3):
         """
         Translates a list of strings concurrently.
         """
@@ -61,7 +61,37 @@ class TranslationManager:
         # CRITICAL FIX: Create a NEW translator instance for each thread to avoid race conditions
         # with internal state (which caused the "all ores = platinum_ore" bug).
         def _translate_worker(text):
-            return GoogleTranslator(source='auto', target='en').translate(text)
+            import time
+            import random
+            
+            retries = 3
+            last_error = None
+            
+            for attempt in range(retries):
+                try:
+                    # Add jitter delay to prevent thundering herd
+                    time.sleep(random.uniform(0.5, 1.5))
+                    
+                    # Create new instance for thread safety
+                    t = GoogleTranslator(source='auto', target='en')
+                    result = t.translate(text)
+                    
+                    # Validate result
+                    if result:
+                        lower_res = result.lower()
+                        # Check for known error signatures returned as text
+                        if "error" in lower_res and ("504" in lower_res or "server" in lower_res or "request" in lower_res):
+                            raise Exception(f"Detected Error Message in response: {result}")
+                            
+                    return result
+                    
+                except Exception as e:
+                    last_error = e
+                    print(f"Translation attempt {attempt+1}/{retries} failed for '{text}': {e}")
+                    # Exponential backoff + Jitter
+                    time.sleep((2 ** attempt) + random.uniform(0, 1))
+            
+            raise last_error
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_index = {

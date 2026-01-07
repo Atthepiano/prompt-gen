@@ -67,8 +67,10 @@ def save_items_to_csv(filepath: str, items: List[dict]):
                     item.get('file_en', '')
                 ])
         print(f"Successfully saved cache to {filepath}")
+        return True
     except Exception as e:
         print(f"Error saving CSV: {e}")
+        return False
 
 def generate_icon_grid_prompt(items: List[dict], translate: bool = False, cache_path: str = None) -> str:
     """
