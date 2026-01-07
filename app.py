@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import prompt_generator as pg
 import item_generator as ig
 import slicer_tool as st
+import curation_tool as ct
 import os
 import threading
 
@@ -35,7 +36,8 @@ class PromptApp:
         
         # Item Prompt Variables
         self.item_csv_path = ig.DEFAULT_CSV_PATH
-        self.var_cache_translation = tk.BooleanVar(value=True) # Unified cache option
+        self.var_cache_translation = tk.BooleanVar(value=True)
+        self.var_normalize = tk.BooleanVar(value=True) # Default True for normalization logic # Unified cache option
 
         # --- Layout ---
         # Main Layout: Left (Controls), Right (Output)
@@ -65,6 +67,10 @@ class PromptApp:
         self.tab_slicer = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_slicer, text="Image Slicer")
 
+        # Tab 4: Asset Curation
+        self.tab_curation = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_curation, text="Asset Curation")
+
         # --- Setup Tab 1: Spaceship Controls ---
         self.setup_spaceship_tab()
 
@@ -73,6 +79,12 @@ class PromptApp:
         
         # --- Setup Tab 3: Slicer Controls ---
         self.setup_slicer_tab()
+
+        # --- Setup Tab 4: Curation Controls ---
+        self.curator = ct.AssetCurator()
+        self.curation_queue = [] # List of filenames to process
+        self.current_curation_index = 0
+        self.setup_curation_tab()
 
         # --- Output Area (Right) ---
         self.lbl_output_header = ttk.Label(right_frame, text="Generated Output / Logs:", font=("Arial", 12, "bold"))
@@ -213,10 +225,24 @@ class PromptApp:
         ttk.Label(parent, text="Splits an 8x8 grid image into 64 icons.", wraplength=380).pack(anchor="w", pady=(0, 10))
         
         # --- Image Selection ---
-        ttk.Label(parent, text="1. Select Grid Image:", font=("Arial", 10, "bold")).pack(anchor="w")
-        ttk.Button(parent, text="Select Image File...", command=self.select_image_for_slicer).pack(fill=tk.X, pady=(5, 5))
-        self.lbl_selected_file = ttk.Label(parent, text="No file selected", foreground="gray")
+        ttk.Label(parent, text="1. Select Grid Image(s):", font=("Arial", 10, "bold")).pack(anchor="w")
+        ttk.Button(parent, text="Select Image File(s)...", command=self.select_images_for_slicer).pack(fill=tk.X, pady=(5, 5))
+        self.lbl_selected_file = ttk.Label(parent, text="No file selected", foreground="gray", wraplength=400)
         self.lbl_selected_file.pack(anchor="w", pady=(0, 10))
+        
+        # --- Advanced Config ---
+        frame_config = ttk.LabelFrame(parent, text="Advanced Configuration", padding=5)
+        frame_config.pack(fill=tk.X, pady=5)
+        
+        # Grid Size
+        ttk.Label(frame_config, text="Grid Size (Row x Col):").pack(side=tk.LEFT)
+        self.var_grid_size = tk.StringVar(value="8")
+        ttk.Entry(frame_config, textvariable=self.var_grid_size, width=5).pack(side=tk.LEFT, padx=5)
+        
+        # Scale Factor
+        ttk.Label(frame_config, text="Norm Scale (0.1-1.0):").pack(side=tk.LEFT, padx=(10, 0))
+        self.var_scale_factor = tk.DoubleVar(value=0.85)
+        ttk.Entry(frame_config, textvariable=self.var_scale_factor, width=5).pack(side=tk.LEFT, padx=5)
         
         # --- Naming Options ---
         ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=5)
@@ -238,28 +264,45 @@ class PromptApp:
         
         # Toggle Background Removal
         self.var_remove_bg = tk.BooleanVar(value=False)
+        # Toggle Normalization
+        self.var_normalize = tk.BooleanVar(value=False)
         
-        # Check rembg availability - Checking for VENV instead of local import
+        # Check rembg availability
         venv_exists = False
-        try:
-             workspace_dir = os.getcwd()
-             venv_python = os.path.join(workspace_dir, ".venv_rembg", "Scripts", "python.exe")
-             if os.path.exists(venv_python):
+        import sys
+        if getattr(sys, 'frozen', False):
+             # In frozen mode, assume valid if exe exists alongside
+             base_dir = os.path.dirname(sys.executable)
+             if os.path.exists(os.path.join(base_dir, "worker_rembg.exe")):
                  venv_exists = True
-        except:
-             pass
-
-        bg_text = "Remove Background (Uses separate Python 3.10 environment)"
+        
         if not venv_exists:
-            bg_text += " [Setup Required - Run setup_env.bat]"
+            try:
+                workspace_dir = os.getcwd()
+                venv_python = os.path.join(workspace_dir, ".venv_rembg", "Scripts", "python.exe")
+                if os.path.exists(venv_python):
+                    venv_exists = True
+            except:
+                pass
+
+        bg_text = "Remove Background"
+        if not venv_exists:
+            bg_text += " [Setup Required]"
             
         self.cb_remove_bg = ttk.Checkbutton(parent, text=bg_text, variable=self.var_remove_bg)
         self.cb_remove_bg.pack(anchor="w", pady=(5, 0))
         
-        # Always enable, but warn in text if missing
+        # Always enable
+        self.cb_remove_bg.config(state=tk.NORMAL) 
+        
         if not venv_exists:
              self.cb_remove_bg.config(state=tk.NORMAL) # Let user try it or see warning
 
+        # Normalize Checkbox
+
+        # Normalize Checkbox
+        self.cb_normalize = ttk.Checkbutton(parent, text="Normalize Size & Position (Trim & Center 90%)", variable=self.var_normalize)
+        self.cb_normalize.pack(anchor="w", pady=(2, 0))
         
         # CSV Selection
         frame_csv = ttk.Frame(parent)
@@ -280,12 +323,259 @@ class PromptApp:
         # Point to Threaded version
         self.btn_slice = ttk.Button(parent, text="SLICE INTO 64 ICONS", command=self.run_slicer_threaded, state=tk.DISABLED)
         self.btn_slice.pack(fill=tk.X, pady=(10, 0), ipady=10)
+
+    def setup_curation_tab(self):
+        parent = self.tab_curation
         
-    def select_image_for_slicer(self):
-        filepath = filedialog.askopenfilename(title="Select Sprite Sheet", filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")])
-        if filepath:
-            self.selected_image_path = filepath
-            self.lbl_selected_file.config(text=f"...{os.path.basename(filepath)}")
+        # Main Layout: Sidebar (Config) | Main (View)
+        paned = tk.PanedWindow(parent, orient=tk.HORIZONTAL)
+        paned.pack(fill=tk.BOTH, expand=True)
+        
+        sidebar = ttk.Frame(paned, padding=(0, 0, 10, 0))
+        main_view = ttk.Frame(paned)
+        
+        paned.add(sidebar, minsize=250)
+        paned.add(main_view)
+        
+        # --- Sidebar ---
+        ttk.Label(sidebar, text="Configuration", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        
+        # Target Folder
+        ttk.Label(sidebar, text="Target Folder (Output):").pack(anchor="w")
+        self.curation_target_var = tk.StringVar()
+        self.entry_curation_target = ttk.Entry(sidebar, textvariable=self.curation_target_var)
+        self.entry_curation_target.pack(fill=tk.X, pady=(0, 5))
+        ttk.Button(sidebar, text="Browse Target...", command=self.browse_curation_target).pack(anchor="e")
+        
+        ttk.Separator(sidebar, orient='horizontal').pack(fill='x', pady=10)
+        
+        # Source Folders
+        ttk.Label(sidebar, text="Source Folders (Inputs):").pack(anchor="w")
+        
+        list_frame = ttk.Frame(sidebar)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
+        
+        self.lst_sources = tk.Listbox(list_frame, height=8)
+        self.lst_sources.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        sb = ttk.Scrollbar(list_frame, orient="vertical", command=self.lst_sources.yview)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.lst_sources.config(yscrollcommand=sb.set)
+        
+        btn_frame = ttk.Frame(sidebar)
+        btn_frame.pack(fill=tk.X)
+        ttk.Button(btn_frame, text="+ Add Batch (Select Files)", command=self.add_source_folder_batch).pack(fill=tk.X, pady=(0, 2))
+        
+        btn_row2 = ttk.Frame(btn_frame)
+        btn_row2.pack(fill=tk.X)
+        ttk.Button(btn_row2, text="+ Add Folder", command=self.add_source_folder_single).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0,1))
+        ttk.Button(btn_row2, text="- Remove", command=self.remove_source_folder).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(1,0))
+        
+        ttk.Separator(sidebar, orient='horizontal').pack(fill='x', pady=10)
+        
+        # Controls
+        self.lbl_curation_status = ttk.Label(sidebar, text="Ready", wraplength=200)
+        self.lbl_curation_status.pack(anchor="w", pady=(0, 10))
+        
+        self.btn_start_curation = ttk.Button(sidebar, text="START SESSION", command=self.start_curation_session, width=20)
+        self.btn_start_curation.pack(fill=tk.X, ipady=5)
+        
+        # --- Main View (Comparison) ---
+        self.frame_comparison = ttk.Frame(main_view)
+        self.frame_comparison.pack(fill=tk.BOTH, expand=True)
+        
+        # Header
+        self.lbl_compare_info = ttk.Label(self.frame_comparison, text="Waiting to start...", font=("Arial", 14))
+        self.lbl_compare_info.pack(pady=10)
+        
+        # Image Grid Container (Scrollable)
+        canvas_container = ttk.Frame(self.frame_comparison)
+        canvas_container.pack(fill=tk.BOTH, expand=True)
+        
+        self.canvas_comp = tk.Canvas(canvas_container)
+        self.scroll_comp = ttk.Scrollbar(canvas_container, orient="vertical", command=self.canvas_comp.yview)
+        self.frame_comp_inner = ttk.Frame(self.canvas_comp)
+        
+        self.frame_comp_inner.bind(
+            "<Configure>",
+            lambda e: self.canvas_comp.configure(scrollregion=self.canvas_comp.bbox("all"))
+        )
+        
+        self.canvas_comp.create_window((0, 0), window=self.frame_comp_inner, anchor="nw")
+        self.canvas_comp.configure(yscrollcommand=self.scroll_comp.set)
+        
+        self.canvas_comp.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scroll_comp.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Bottom Controls
+        self.btn_curation_skip = ttk.Button(self.frame_comparison, text="Skip / Discard All", command=self.skip_curation_item, state=tk.DISABLED)
+        self.btn_curation_skip.pack(pady=10)
+        
+        # Bind Keys
+        self.root.bind("<Key>", self.handle_curation_keypress)
+
+    def browse_curation_target(self):
+        path = filedialog.askdirectory(title="Select Target Folder")
+        if path:
+            self.curation_target_var.set(path)
+
+    def add_source_folder_batch(self):
+        # Workaround for multi-folder select: Ask for files
+        filepaths = filedialog.askopenfilenames(title="Select ANY file inside the source folder(s) - Ctrl+Click to select multiple folders")
+        if filepaths:
+            current_list = self.lst_sources.get(0, tk.END)
+            for fp in filepaths:
+                folder = os.path.dirname(fp)
+                if folder not in current_list:
+                    self.lst_sources.insert(tk.END, folder)
+                    current_list = self.lst_sources.get(0, tk.END) # Update local ref
+            self.lst_sources.see(tk.END)
+
+    def add_source_folder_single(self):
+        path = filedialog.askdirectory(title="Select Source Folder")
+        if path:
+            if path not in self.lst_sources.get(0, tk.END):
+                self.lst_sources.insert(tk.END, path)
+                self.lst_sources.see(tk.END)
+
+    def remove_source_folder(self):
+        selection = self.lst_sources.curselection()
+        if selection:
+            self.lst_sources.delete(selection[0])
+
+    def start_curation_session(self):
+        sources = self.lst_sources.get(0, tk.END)
+        target = self.curation_target_var.get()
+        
+        if not sources:
+            messagebox.showerror("Error", "Please add at least one source folder.")
+            return
+        if not target:
+            messagebox.showerror("Error", "Please select a target folder.")
+            return
+            
+        # Configure Backend
+        self.curator.set_config(list(sources), target)
+        
+        # Scan
+        total, conflicts = self.curator.scan_files()
+        
+        # Auto-resolve uniques
+        auto_count = self.curator.auto_resolve_uniques()
+        
+        msg = f"Scan Complete.\nTotal Files: {total}\nAuto-Resolved (Unique): {auto_count}\nConflicts to Review: {conflicts}"
+        messagebox.showinfo("Session Started", msg)
+        
+        # Setup Queue
+        self.curation_queue = self.curator.get_pending_conflicts()
+        self.current_curation_index = 0
+        
+        self.load_next_curation_item()
+
+    def load_next_curation_item(self):
+        if self.current_curation_index >= len(self.curation_queue):
+            # Done
+            self.lbl_compare_info.config(text="Session Complete! All items resolved.")
+            for widget in self.frame_comp_inner.winfo_children(): widget.destroy()
+            self.btn_curation_skip.config(state=tk.DISABLED)
+            return
+            
+        filename = self.curation_queue[self.current_curation_index]
+        variants = self.curator.get_variants(filename)
+        
+        # Update Header
+        progress = f"({self.current_curation_index + 1}/{len(self.curation_queue)})"
+        self.lbl_compare_info.config(text=f"{progress} Comparing: {filename}")
+        self.btn_curation_skip.config(state=tk.NORMAL)
+        
+        # Clear Display
+        for widget in self.frame_comp_inner.winfo_children(): widget.destroy()
+        
+        # Display Grid logic
+        # Max columns = 3 (Fits nicely in 850px width: 3 * (180+20) = 600px, leaving room)
+        COL_LIMIT = 3
+        
+        # Keep references to images so garbage collector doesn't eat them
+        self.curation_images = []
+        
+        for i, path in enumerate(variants):
+            row = i // COL_LIMIT
+            col = i % COL_LIMIT
+            
+            frame_item = ttk.Frame(self.frame_comp_inner, borderwidth=2, relief="groove", padding=5)
+            frame_item.grid(row=row, column=col, padx=10, pady=10)
+            
+            try:
+                img = Image.open(path)
+                # Resize to fit nicely (180x180 max)
+                img.thumbnail((180, 180)) 
+                photo = ImageTk.PhotoImage(img)
+                self.curation_images.append(photo)
+                
+                # Image Button
+                btn_img = tk.Button(frame_item, image=photo, command=lambda p=path: self.select_curation_item(filename, p))
+                btn_img.pack()
+                
+                # Label
+                hotkey = str(i + 1)
+                lbl = ttk.Label(frame_item, text=f"[{hotkey}] Source {i+1}", font=("Arial", 10, "bold"))
+                lbl.pack(pady=(5,0))
+                
+                # Source path tooltip/label (truncated)
+                src_folder = os.path.basename(os.path.dirname(path))
+                ttk.Label(frame_item, text=src_folder, foreground="gray").pack()
+                
+            except Exception as e:
+                ttk.Label(frame_item, text="Error loading image").pack()
+                
+        # Update layout
+        self.frame_comp_inner.update_idletasks()
+        self.canvas_comp.configure(scrollregion=self.canvas_comp.bbox("all"))
+
+    def select_curation_item(self, filename, path):
+        # Commit to backend
+        success = self.curator.commit_selection(filename, path)
+        if success:
+            self.current_curation_index += 1
+            self.load_next_curation_item()
+        else:
+            messagebox.showerror("Error", "Failed to copy file.")
+
+    def skip_curation_item(self):
+        filename = self.curation_queue[self.current_curation_index]
+        self.curator.skip_file(filename)
+        self.current_curation_index += 1
+        self.load_next_curation_item()
+        
+    def handle_curation_keypress(self, event):
+        # Only active if Curation tab is selected
+        if self.notebook.select() != str(self.tab_curation):
+            return
+            
+        if not self.curation_queue or self.current_curation_index >= len(self.curation_queue):
+            return
+            
+        key = event.char
+        if key in "123456789":
+            idx = int(key) - 1
+            filename = self.curation_queue[self.current_curation_index]
+            variants = self.curator.get_variants(filename)
+            
+            if 0 <= idx < len(variants):
+                self.select_curation_item(filename, variants[idx])
+                
+    def select_images_for_slicer(self):
+        filepaths = filedialog.askopenfilenames(title="Select Sprite Sheets", filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")])
+        if filepaths:
+            self.slicer_files = list(filepaths)
+            count = len(self.slicer_files)
+            if count == 1:
+                display = os.path.basename(self.slicer_files[0])
+            else:
+                display = f"{count} files selected"
+                
+            self.selected_image_path = self.slicer_files[0] # Compat
+            self.lbl_selected_file.config(text=display, foreground="black")
             self.btn_slice.config(state=tk.NORMAL)
             
             # Show Preview
@@ -363,35 +653,76 @@ class PromptApp:
             self.root.after(0, lambda: self.set_ui_busy(False, "Error Occurred"))
 
     def run_slicer_threaded(self):
-        if not self.selected_image_path:
+        # Ensure list exists
+        if not hasattr(self, 'slicer_files') and hasattr(self, 'selected_image_path') and self.selected_image_path:
+             self.slicer_files = [self.selected_image_path]
+             
+        if not hasattr(self, 'slicer_files') or not self.slicer_files:
             return
         
-        self.set_ui_busy(True, "Slicing Image and Translating Names... (Please wait)")
+        self.set_ui_busy(True, "Slicing Images... (Batch Processing)")
         threading.Thread(target=self._run_slicer_task, daemon=True).start()
 
     def _run_slicer_task(self):
         csv_to_use = self.slicer_csv_path if self.var_use_csv_naming.get() else None
         do_translate = self.var_translate_filename.get()
+        
+        # Get Config
+        try:
+            grid_size_str = self.var_grid_size.get()
+            if 'x' in grid_size_str:
+                parts = grid_size_str.split('x')
+                rows = int(parts[0])
+                cols = int(parts[1])
+            else:
+                rows = int(grid_size_str)
+                cols = rows
+        except:
+            rows = 8
+            cols = 8 # Default
             
         try:
-            success, msg, count = st.slice_image(self.selected_image_path, 
-                                               csv_path=csv_to_use, 
-                                               translate_mode=do_translate,
-                                               remove_bg=self.var_remove_bg.get(),
-                                               cache_mode=self.var_cache_translation.get())
-            
-            if success:
-                final_msg = f"{msg}\n\nGenerated {count} icons.\nCSV Used: {csv_to_use}\nTranslation: {do_translate}"
-                self.root.after(0, lambda: messagebox.showinfo("Success", msg))
-                self.root.after(0, lambda: self.set_output(final_msg))
-                self.root.after(0, lambda: self.set_ui_busy(False, "Slicing Complete"))
-            else:
-                self.root.after(0, lambda: messagebox.showerror("Error", msg))
-                self.root.after(0, lambda: self.set_ui_busy(False, "Slicing Failed"))
+             scale = self.var_scale_factor.get()
+        except:
+             scale = 0.85
+        
+        success_count = 0
+        errors = []
+        
+        total = len(self.slicer_files)
+        
+        for i, fp in enumerate(self.slicer_files):
+            self.status_var.set(f"Processing ({i+1}/{total}): {os.path.basename(fp)}...")
+            try:
+                success, msg, count = st.slice_image(
+                                                   image_path=fp, 
+                                                   grid_rows=rows, 
+                                                   grid_cols=cols,
+                                                   csv_path=csv_to_use, 
+                                                   translate_mode=do_translate,
+                                                   remove_bg=self.var_remove_bg.get(),
+                                                   cache_mode=self.var_cache_translation.get(),
+                                                   normalize_mode=self.var_normalize.get(),
+                                                   scale_factor=scale)
+                if success:
+                    success_count += 1
+                else:
+                    errors.append(f"{os.path.basename(fp)}: {msg}")
+            except Exception as e:
+                errors.append(f"{os.path.basename(fp)}: {str(e)}")
                 
-        except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Critical Error", str(e)))
-            self.root.after(0, lambda: self.set_ui_busy(False, "Error"))
+        self.root.after(0, lambda: self.set_ui_busy(False, "Batch Complete"))
+        
+        summary = f"Processed {success_count}/{total} files successfully."
+        if errors:
+            summary += "\n\nErrors:\n" + "\n".join(errors)
+            self.root.after(0, lambda: messagebox.showwarning("Batch Results", summary))
+        else:
+            self.root.after(0, lambda: messagebox.showinfo("Batch Complete", summary))
+            
+        self.root.after(0, lambda: self.set_output(summary))
+                
+
 
     # --- Event Handlers (Spaceship) ---
     def update_subcategories(self, event=None):

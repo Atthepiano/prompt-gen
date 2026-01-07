@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from PIL import Image
 import item_generator as ig
 import translation_service as ts
@@ -8,7 +9,61 @@ def sanitize_filename(name):
     """Remove invalid characters from filename."""
     return re.sub(r'[\\/*?:"<>|]', "", name).strip().replace(" ", "_").lower()
 
-def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=None, translate_mode=False, remove_bg=False, cache_mode=True):
+def normalize_image_content(img, threshold=30, scale_factor=0.85):
+    """
+    Trims, Denoises, and Centers the image content.
+    """
+    # 1. Denoise (Alpha Threshold)
+    # Convert manually to avoid complex dependencies, or use point lookup
+    # Load data to allow pixel access
+    img = img.convert("RGBA")
+    datas = img.getdata()
+    
+    new_data = []
+    # Simple thresholding
+    for item in datas:
+        # item is (r,g,b,a)
+        if item[3] < threshold:
+            new_data.append((0, 0, 0, 0)) # Fully transparent
+        else:
+            new_data.append(item)
+            
+    img.putdata(new_data)
+    
+    # 2. Trim (Get Bounding Box)
+    bbox = img.getbbox()
+    if not bbox:
+        return img # Empty image
+        
+    content = img.crop(bbox)
+    
+    # 3. Scale and Center
+    # Target size is original canvas size (assuming square input cells usually)
+    target_w, target_h = img.size 
+    
+    # Max dimensions for content
+    max_w = int(target_w * scale_factor)
+    max_h = int(target_h * scale_factor)
+    
+    content_w, content_h = content.size
+    
+    # Calculate scale to fit
+    ratio = min(max_w / content_w, max_h / content_h)
+    new_w = int(content_w * ratio)
+    new_h = int(content_h * ratio)
+    
+    # Resize content (LANCZOS for quality)
+    content = content.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    
+    # Paste into center of empty canvas
+    new_img = Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
+    offset_x = (target_w - new_w) // 2
+    offset_y = (target_h - new_h) // 2
+    
+    new_img.paste(content, (offset_x, offset_y))
+    return new_img
+
+def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=None, translate_mode=False, remove_bg=False, cache_mode=True, normalize_mode=False, scale_factor=0.85):
     """
     Slices an image into a grid of smaller images.
     param csv_path: Optional path to CSV to use for naming.
@@ -112,41 +167,68 @@ def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=
                 # Remove Background if requested
                 if remove_bg:
                     try:
-                        # Define worker path and python path (relative to current script or cwd)
-                        # We need to find the .venv_rembg/Scripts/python.exe
-                        workspace_dir = os.getcwd() # Assumption: running from root
-                        venv_python = os.path.join(workspace_dir, ".venv_rembg", "Scripts", "python.exe")
-                        worker_script = os.path.join(workspace_dir, "worker_rembg.py")
+                        # Define worker command
+                        worker_cmd = None
                         
-                        if not os.path.exists(venv_python):
-                             print("Error: Venv python not found. Did you run setup_env.bat?")
-                        elif not os.path.exists(worker_script):
-                             print("Error: Worker script not found.")
+                        # 1. Check for bundled/frozen worker EXE
+                        if getattr(sys, 'frozen', False):
+                            base_dir = os.path.dirname(sys.executable)
+                            worker_exe = os.path.join(base_dir, "worker_rembg.exe")
+                            if os.path.exists(worker_exe):
+                                temp_input = os.path.join(output_dir, f"temp_{row}_{col}.png")
+                                temp_output = os.path.join(output_dir, f"temp_{row}_{col}_out.png")
+                                worker_cmd = [worker_exe, temp_input, temp_output]
+
+                        # 2. Fallback to Dev Venv
+                        if not worker_cmd:
+                            workspace_dir = os.getcwd() 
+                            venv_python = os.path.join(workspace_dir, ".venv_rembg", "Scripts", "python.exe")
+                            worker_script = os.path.join(workspace_dir, "worker_rembg.py")
+                            
+                            if os.path.exists(venv_python) and os.path.exists(worker_script):
+                                temp_input = os.path.join(output_dir, f"temp_{row}_{col}.png")
+                                temp_output = os.path.join(output_dir, f"temp_{row}_{col}_out.png")
+                                worker_cmd = [venv_python, worker_script, temp_input, temp_output]
+                        
+                        if worker_cmd:
+                             # Save temp file
+                             cell.save(temp_input)
+                             
+                             # Run
+                             import subprocess
+                             # Hide console window on Windows if frozen
+                             startupinfo = None
+                             if os.name == 'nt' and getattr(sys, 'frozen', False):
+                                 startupinfo = subprocess.STARTUPINFO()
+                                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                                 
+                             result = subprocess.run(worker_cmd, capture_output=True, text=True, startupinfo=startupinfo)
+                             
+                             if result.returncode == 0 and os.path.exists(temp_output):
+                                 cell = Image.open(temp_output).convert("RGBA")
+                                 cell.load() # Force read
+                                 try:
+                                     os.remove(temp_input)
+                                     os.remove(temp_output)
+                                 except: pass
+                             else:
+                                 print(f"Worker failed for {row},{col}: {result.stderr}")
+                                 try:
+                                     if os.path.exists(temp_input):
+                                         os.remove(temp_input)
+                                 except: pass
                         else:
-                            # Save temp file for processing
-                            temp_input = os.path.join(output_dir, f"temp_{row}_{col}.png")
-                            cell.save(temp_input)
-                            
-                            temp_output = os.path.join(output_dir, f"temp_{row}_{col}_out.png")
-                            
-                            # Call external worker
-                            import subprocess
-                            result = subprocess.run([venv_python, worker_script, temp_input, temp_output], capture_output=True, text=True)
-                            
-                            if result.returncode == 0 and os.path.exists(temp_output):
-                                # Load back processing result
-                                cell = Image.open(temp_output).convert("RGBA")
-                                # Clean up
-                                try:
-                                    os.remove(temp_input)
-                                    os.remove(temp_output)
-                                except: pass
-                            else:
-                                print(f"Worker failed for {row},{col}: {result.stderr}")
-                                if os.path.exists(temp_input): os.remove(temp_input)
-                                
+                             print("Rembg worker not found (venv missing and no frozen exe). Skipping bg removal.")
+ 
                     except Exception as e:
                         print(f"Failed to remove bg for cell {row},{col}: {e}")
+                
+                # Normalize Visual Size (Trim & Center)
+                if normalize_mode:
+                    try:
+                        cell = normalize_image_content(cell, scale_factor=scale_factor)
+                    except Exception as e:
+                        print(f"Normalization failed for cell {row},{col}: {e}")
                 
                 # Determine Filename
                 idx = row * grid_cols + col

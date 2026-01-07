@@ -25,3 +25,9 @@ Desktop.ini
 # IDE
 .vscode/
 .idea/
+
+# Build Artifacts
+build/
+dist/
+*.spec
+*.zip
