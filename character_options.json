@@ -106,6 +106,59 @@
     ["undercut", "两侧剃短"],
     ["shaved sides", "侧剃"]
   ],
+  "bangs_presence_options": [
+    ["Unspecified", "未指定"],
+    ["with bangs", "有刘海"],
+    ["no bangs", "无刘海"]
+  ],
+  "bangs_style_options": [
+    ["Unspecified", "未指定"],
+    ["straight bangs", "齐刘海"],
+    ["side-swept bangs", "侧分刘海"],
+    ["wispy bangs", "轻薄刘海"],
+    ["choppy bangs", "碎刘海"],
+    ["curtain bangs", "八字刘海"],
+    ["baby bangs", "眉上刘海"]
+  ],
+  "face_shape_options": [
+    ["Unspecified", "未指定"],
+    ["oval face", "椭圆脸"],
+    ["round face", "圆脸"],
+    ["square jawline", "方下颌"],
+    ["heart-shaped face", "心形脸"],
+    ["long face", "长脸"]
+  ],
+  "eye_size_options": [
+    ["Unspecified", "未指定"],
+    ["large eyes", "大眼"],
+    ["medium eyes", "中等眼"],
+    ["narrow eyes", "细长眼"]
+  ],
+  "nose_size_options": [
+    ["Unspecified", "未指定"],
+    ["small nose", "小鼻"],
+    ["refined nose", "精致鼻"],
+    ["prominent nose", "高挺鼻"]
+  ],
+  "mouth_shape_options": [
+    ["Unspecified", "未指定"],
+    ["thin lips", "薄唇"],
+    ["balanced lips", "标准唇"],
+    ["full lips", "厚唇"],
+    ["subtle smile", "微笑唇"]
+  ],
+  "cheek_fullness_options": [
+    ["Unspecified", "未指定"],
+    ["soft cheeks", "柔和脸颊"],
+    ["defined cheekbones", "清晰颧骨"],
+    ["hollow cheeks", "凹陷脸颊"]
+  ],
+  "jaw_width_options": [
+    ["Unspecified", "未指定"],
+    ["narrow jaw", "窄下颌"],
+    ["balanced jaw", "标准下颌"],
+    ["wide jaw", "宽下颌"]
+  ],
   "eye_color_options": [
     ["Unspecified", "未指定"],
     ["brown", "棕色"],
@@ -126,6 +179,19 @@
     ["olive and sand", "橄榄绿与沙色"],
     ["crimson and slate", "深红与板岩灰"],
     ["orange and gunmetal", "橙与枪灰"]
+  ],
+  "outfit_type_options": [
+    ["Unspecified", "未指定"],
+    ["uniform", "制服"],
+    ["flight suit", "飞行服"],
+    ["explorer gear", "探索装备"],
+    ["pilot jacket", "飞行员夹克"],
+    ["tactical uniform", "战术制服"],
+    ["mechanic coveralls", "机修连体服"],
+    ["lab coat", "研究员白袍"],
+    ["diplomatic attire", "外交正装"],
+    ["android bodysuit", "仿生紧身衣"],
+    ["plugsuit", "紧身驾驶服"]
   ],
   "material_options": [
     ["Unspecified", "未指定"],
@@ -200,5 +266,46 @@
     ["caution stripes", "警戒条纹"],
     ["serial number decal", "序列号贴"],
     ["maintenance markings", "维护标记"]
-  ]
+  ],
+  "misc_details": [
+    ["glowing circuit lines", "发光电路线"],
+    ["holographic HUD panel", "全息 HUD 面板"],
+    ["luminescent seams", "发光缝线"],
+    ["energy core module", "能量核心模块"],
+    ["micro-thruster pack", "微型推进器"],
+    ["signal antenna", "信号天线"],
+    ["magnetic clasps", "磁力搭扣"],
+    ["cybernetic eye", "义眼"],
+    ["neural interface ports", "神经接口端口"],
+    ["data cable ports", "数据线端口"],
+    ["optical HUD glow", "光学 HUD 发光"],
+    ["powered gauntlet", "动力护臂"],
+    ["exo brace", "外骨骼支架"],
+    ["mechanical tubing", "机械管线"],
+    ["hologram emitter", "全息投影器"],
+    ["prosthetic arm", "义肢手臂"],
+    ["earpiece communicator", "通讯耳机"],
+    ["visor", "护目镜"],
+    ["unit number stencil", "单位编号喷绘"],
+    ["warning decals", "警示贴纸"],
+    ["barcode tattoo", "条码纹身"],
+    ["faction emblem tattoo", "阵营纹章纹身"],
+    ["caution stripes", "警戒条纹"],
+    ["serial number decal", "序列号贴"],
+    ["maintenance markings", "维护标记"]
+  ],
+  "profession_outfits": {
+    "Space Pilot": ["uniform", "flight suit", "plugsuit", "pilot jacket"],
+    "Navigator": ["uniform", "flight suit", "pilot jacket"],
+    "Starship Engineer": ["mechanic coveralls", "tactical uniform", "uniform"],
+    "Mech Technician": ["mechanic coveralls", "tactical uniform"],
+    "Station Security": ["tactical uniform", "uniform"],
+    "Bounty Hunter": ["tactical uniform", "pilot jacket", "explorer gear"],
+    "Explorer": ["explorer gear", "flight suit", "pilot jacket"],
+    "Smuggler": ["pilot jacket", "explorer gear", "tactical uniform"],
+    "Scientist": ["lab coat", "uniform"],
+    "Medic": ["lab coat", "uniform", "tactical uniform"],
+    "Diplomat": ["diplomatic attire", "uniform"],
+    "Android": ["android bodysuit", "uniform"]
+  }
 }

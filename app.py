@@ -75,9 +75,9 @@ UI_TEXTS_ZH = {
     "Skip / Discard All": "跳过 / 全部丢弃",
     "Character Prompt Generation": "角色提示词生成",
     "Build a modular character prompt for retro sci-fi anime portraits.": "构建复古科幻动漫人像的模块化提示词。",
-    "Core Descriptors": "核心描述",
+    "Core Descriptors": "基础",
     "Gender:": "性别：",
-    "Age (Fuzzy):": "年龄（模糊）：",
+    "Age:": "年龄：",
     "Profession:": "职业：",
     "Custom Profession:": "自定义职业：",
     "Composition": "构图",
@@ -91,16 +91,37 @@ UI_TEXTS_ZH = {
     "Skin Tone:": "肤色：",
     "Hair Style:": "发型：",
     "Hair Color:": "发色：",
+    "Hair Color Advanced Mode": "发色高级模式",
+    "Hair Colors:": "发色配色：",
+    "Add Hair Color": "添加发色",
+    "Clear Hair Colors": "清空发色",
+    "Bangs Presence:": "刘海：",
+    "Bangs Style:": "刘海类型：",
+    "Face Shape:": "脸型：",
+    "Eye Size:": "眼睛大小：",
+    "Nose Size:": "鼻型/大小：",
+    "Mouth Shape:": "嘴型：",
+    "Cheek Fullness:": "颧/脸颊：",
+    "Jaw Width:": "下颌宽度：",
     "Eye Color:": "眼睛颜色：",
     "Outfit Palette:": "服装配色：",
     "Material Finish:": "材质质感：",
-    "Detail Builder": "细节拼装",
-    "Face & Skin": "面部与肤质",
+    "Hair": "发型",
+    "Face": "面部",
+    "Outfit": "服装",
+    "Misc": "杂项",
+    "Outfit Type:": "服装类型：",
+    "Outfit Colors:": "服装配色：",
+    "Add Color": "添加颜色",
+    "Clear Colors": "清空配色",
+    "Max hair colors reached": "已达到最多 3 个发色",
+    "Max colors reached": "已达到最多 5 个颜色",
+    "Face Features": "面部特征",
     "Apparel Details": "服装细节",
     "Accessories": "配饰",
-    "Tech & Augments": "科技与义体",
-    "Marks & Insignia": "标记与徽识",
-    "Custom visual details (comma separated):": "自定义外观/服装/标记（逗号分隔）：",
+    "Misc Details": "杂项细节",
+    "Artist Styles": "艺术家风格",
+    "Custom misc (comma separated):": "自定义杂项（逗号分隔）：",
     "Custom gear/tech (comma separated):": "自定义配饰/科技（逗号分隔）：",
     "Extra modifiers (optional):": "额外修饰（可选）：",
     "GENERATE CHARACTER PROMPT": "生成角色提示词",
@@ -163,7 +184,7 @@ class PromptApp:
         self.config = self.load_config()
         self.ui_lang = self.config.get("language", "en")
         self.root.title(self.t("Spaceship Prompt Generator"))
-        self.root.geometry("1100x900")
+        self.root.geometry("980x820")
 
         # --- Data Setup ---
         self.component_map = pg.get_component_map()
@@ -204,7 +225,7 @@ class PromptApp:
         left_container = ttk.Frame(main_pane) 
         right_frame = ttk.Frame(main_pane, padding="10")
         
-        main_pane.add(left_container, minsize=420)
+        main_pane.add(left_container, minsize=380)
         main_pane.add(right_frame)
 
         # --- Notebook (Tabs) ---
@@ -435,11 +456,10 @@ class PromptApp:
         
     def setup_character_tab(self):
         parent = self.tab_characters
-
         header = ttk.Frame(parent)
-        header.pack(fill=tk.X, pady=(0, 10))
+        header.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(header, text=self.t("Character Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w")
-        ttk.Label(header, text=self.t("Build a modular character prompt for retro sci-fi anime portraits."), wraplength=520).pack(anchor="w")
+        ttk.Label(header, text=self.t("Build a modular character prompt for retro sci-fi anime portraits."), wraplength=480).pack(anchor="w")
 
         main = ttk.Frame(parent)
         main.pack(fill=tk.BOTH, expand=True)
@@ -449,230 +469,355 @@ class PromptApp:
 
         left_col = ttk.Frame(main)
         right_col = ttk.Frame(main)
-        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        right_col.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        right_col.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
-        # --- Core Descriptors ---
-        frame_core = ttk.LabelFrame(left_col, text=self.t("Core Descriptors"), padding=6)
-        frame_core.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        # --- Base ---
+        frame_base = ttk.LabelFrame(left_col, text=self.t("Core Descriptors"), padding=6)
+        frame_base.grid(row=0, column=0, sticky="ew", pady=(0, 8))
 
-        ttk.Label(frame_core, text=self.t("Gender:")).grid(row=0, column=0, sticky="w")
-        self.gender_var = tk.StringVar(value=cg.get_gender_options()[0])
-        self.gender_combo = ttk.Combobox(frame_core, textvariable=self.gender_var, state="readonly")
-        self.gender_combo["values"] = cg.get_gender_options()
+        ttk.Label(frame_base, text=self.t("Gender:")).grid(row=0, column=0, sticky="w")
+        gender_options = cg.get_gender_options(self.ui_lang)
+        default_gender = ""
+        if self.ui_lang == "zh":
+            default_gender = next((g for g in gender_options if "女性" in g), "")
+        else:
+            default_gender = next((g for g in gender_options if "Female" in g), "")
+        self.gender_var = tk.StringVar(value=default_gender or (gender_options[0] if gender_options else ""))
+        self.gender_combo = ttk.Combobox(frame_base, textvariable=self.gender_var, state="readonly")
+        self.gender_combo["values"] = gender_options
         self.gender_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
 
-        ttk.Label(frame_core, text=self.t("Age (Fuzzy):")).grid(row=0, column=2, sticky="w")
-        self.age_var = tk.StringVar(value="Adult")
-        self.age_combo = ttk.Combobox(frame_core, textvariable=self.age_var, state="readonly")
-        self.age_combo["values"] = cg.get_age_options()
-        self.age_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        ttk.Label(frame_base, text=self.t("Age:")).grid(row=0, column=2, sticky="w")
+        self.age_var = tk.IntVar(value=17)
+        age_frame = ttk.Frame(frame_base)
+        age_frame.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        age_frame.columnconfigure(0, weight=1)
+        self.age_scale = ttk.Scale(
+            age_frame,
+            from_=10,
+            to=60,
+            orient=tk.HORIZONTAL,
+            command=lambda _=None: self._update_age_label(),
+        )
+        self.age_scale.set(self.age_var.get())
+        self.age_scale.grid(row=0, column=0, sticky="ew")
+        self.age_value_label = ttk.Label(age_frame, text="")
+        self.age_value_label.grid(row=0, column=1, sticky="e", padx=(6, 0))
+        self._update_age_label()
 
-        ttk.Label(frame_core, text=self.t("Profession:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        self.profession_var = tk.StringVar(value=cg.get_profession_options()[0])
-        self.profession_combo = ttk.Combobox(frame_core, textvariable=self.profession_var, state="readonly")
-        self.profession_combo["values"] = cg.get_profession_options()
+        ttk.Label(frame_base, text=self.t("Profession:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        profession_options = cg.get_profession_options(self.ui_lang)
+        self.profession_var = tk.StringVar(value=profession_options[0] if profession_options else "")
+        self.profession_combo = ttk.Combobox(frame_base, textvariable=self.profession_var, state="readonly")
+        self.profession_combo["values"] = profession_options
         self.profession_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        self.profession_combo.bind("<<ComboboxSelected>>", self.update_outfit_options)
 
-        ttk.Label(frame_core, text=self.t("Custom Profession:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Custom Profession:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
         self.custom_profession_var = tk.StringVar()
-        ttk.Entry(frame_core, textvariable=self.custom_profession_var).grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        ttk.Entry(frame_base, textvariable=self.custom_profession_var).grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        frame_core.columnconfigure(1, weight=1)
-        frame_core.columnconfigure(3, weight=1)
+        ttk.Label(frame_base, text=self.t("Body Type:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        body_type_options = cg.get_body_type_options(self.ui_lang)
+        self.body_type_var = tk.StringVar(value=body_type_options[0] if body_type_options else "")
+        self.body_type_combo = ttk.Combobox(frame_base, textvariable=self.body_type_var, state="readonly")
+        self.body_type_combo["values"] = body_type_options
+        self.body_type_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        # --- Composition ---
-        frame_comp = ttk.LabelFrame(left_col, text=self.t("Composition"), padding=6)
-        frame_comp.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(frame_base, text=self.t("Skin Tone:")).grid(row=2, column=2, sticky="w", pady=(6, 0))
+        skin_tone_options = cg.get_skin_tone_options(self.ui_lang)
+        self.skin_tone_var = tk.StringVar(value=skin_tone_options[0] if skin_tone_options else "")
+        self.skin_tone_combo = ttk.Combobox(frame_base, textvariable=self.skin_tone_var, state="readonly")
+        self.skin_tone_combo["values"] = skin_tone_options
+        self.skin_tone_combo.grid(row=2, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_comp, text=self.t("Framing:")).grid(row=0, column=0, sticky="w")
-        self.framing_var = tk.StringVar(value="half body portrait")
-        self.framing_combo = ttk.Combobox(frame_comp, textvariable=self.framing_var, state="readonly")
-        self.framing_combo["values"] = cg.get_framing_options()
-        self.framing_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
+        ttk.Label(frame_base, text=self.t("Framing:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        framing_options = cg.get_framing_options(self.ui_lang)
+        default_framing = ""
+        if self.ui_lang == "zh":
+            default_framing = next((f for f in framing_options if "胸像" in f), "")
+        else:
+            default_framing = next((f for f in framing_options if "bust portrait" in f), "")
+        self.framing_var = tk.StringVar(value=default_framing or (framing_options[0] if framing_options else ""))
+        self.framing_combo = ttk.Combobox(frame_base, textvariable=self.framing_var, state="readonly")
+        self.framing_combo["values"] = framing_options
+        self.framing_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        ttk.Label(frame_comp, text=self.t("Aspect Ratio:")).grid(row=0, column=2, sticky="w")
-        self.aspect_ratio_var = tk.StringVar(value="2:3 portrait")
-        self.aspect_ratio_combo = ttk.Combobox(frame_comp, textvariable=self.aspect_ratio_var, state="readonly")
-        self.aspect_ratio_combo["values"] = cg.get_aspect_ratio_options()
-        self.aspect_ratio_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        ttk.Label(frame_base, text=self.t("Aspect Ratio:")).grid(row=3, column=2, sticky="w", pady=(6, 0))
+        aspect_ratio_options = cg.get_aspect_ratio_options(self.ui_lang)
+        default_ratio = next((r for r in aspect_ratio_options if "1:1" in r), "")
+        self.aspect_ratio_var = tk.StringVar(value=default_ratio or (aspect_ratio_options[0] if aspect_ratio_options else ""))
+        self.aspect_ratio_combo = ttk.Combobox(frame_base, textvariable=self.aspect_ratio_var, state="readonly")
+        self.aspect_ratio_combo["values"] = aspect_ratio_options
+        self.aspect_ratio_combo.grid(row=3, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        frame_comp.columnconfigure(1, weight=1)
-        frame_comp.columnconfigure(3, weight=1)
+        ttk.Label(frame_base, text=self.t("Expression:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        expression_options = cg.get_expression_options(self.ui_lang)
+        self.expression_var = tk.StringVar(value=expression_options[0] if expression_options else "")
+        self.expression_combo = ttk.Combobox(frame_base, textvariable=self.expression_var, state="readonly")
+        self.expression_combo["values"] = expression_options
+        self.expression_combo.grid(row=4, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        # --- Expression ---
-        frame_expr = ttk.LabelFrame(left_col, text=self.t("Expression & Gaze"), padding=6)
-        frame_expr.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(frame_base, text=self.t("Gaze:")).grid(row=4, column=2, sticky="w", pady=(6, 0))
+        gaze_options = cg.get_gaze_options(self.ui_lang)
+        self.gaze_var = tk.StringVar(value=gaze_options[0] if gaze_options else "")
+        self.gaze_combo = ttk.Combobox(frame_base, textvariable=self.gaze_var, state="readonly")
+        self.gaze_combo["values"] = gaze_options
+        self.gaze_combo.grid(row=4, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_expr, text=self.t("Expression:")).grid(row=0, column=0, sticky="w")
-        self.expression_var = tk.StringVar(value="serious expression")
-        self.expression_combo = ttk.Combobox(frame_expr, textvariable=self.expression_var, state="readonly")
-        self.expression_combo["values"] = cg.get_expression_options()
-        self.expression_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
+        frame_base.columnconfigure(1, weight=1)
+        frame_base.columnconfigure(3, weight=1)
 
-        ttk.Label(frame_expr, text=self.t("Gaze:")).grid(row=0, column=2, sticky="w")
-        self.gaze_var = tk.StringVar(value="looking at camera")
-        self.gaze_combo = ttk.Combobox(frame_expr, textvariable=self.gaze_var, state="readonly")
-        self.gaze_combo["values"] = cg.get_gaze_options()
-        self.gaze_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        # --- Hair ---
+        frame_hair = ttk.LabelFrame(left_col, text=self.t("Hair"), padding=6)
+        frame_hair.grid(row=1, column=0, sticky="ew", pady=(0, 8))
 
-        frame_expr.columnconfigure(1, weight=1)
-        frame_expr.columnconfigure(3, weight=1)
+        ttk.Label(frame_hair, text=self.t("Hair Style:")).grid(row=0, column=0, sticky="w")
+        hair_style_options = cg.get_hair_style_options(self.ui_lang)
+        self.hair_style_var = tk.StringVar(value=hair_style_options[0] if hair_style_options else "")
+        self.hair_style_combo = ttk.Combobox(frame_hair, textvariable=self.hair_style_var, state="readonly")
+        self.hair_style_combo["values"] = hair_style_options
+        self.hair_style_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
 
-        # --- Base Visuals ---
-        frame_visual = ttk.LabelFrame(right_col, text=self.t("Base Visuals"), padding=6)
-        frame_visual.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(frame_hair, text=self.t("Hair Color:")).grid(row=0, column=2, sticky="w")
+        hair_color_options = cg.get_hair_color_options(self.ui_lang)
+        self.hair_color_var = tk.StringVar(value=hair_color_options[0] if hair_color_options else "")
+        self.hair_color_combo = ttk.Combobox(frame_hair, textvariable=self.hair_color_var, state="readonly")
+        self.hair_color_combo["values"] = hair_color_options
+        self.hair_color_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
 
-        ttk.Label(frame_visual, text=self.t("Body Type:")).grid(row=0, column=0, sticky="w")
-        self.body_type_var = tk.StringVar(value=cg.get_body_type_options()[0])
-        self.body_type_combo = ttk.Combobox(frame_visual, textvariable=self.body_type_var, state="readonly")
-        self.body_type_combo["values"] = cg.get_body_type_options()
-        self.body_type_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
+        self.hair_color_advanced = tk.BooleanVar(value=False)
+        self.chk_hair_color_advanced = ttk.Checkbutton(
+            frame_hair,
+            text=self.t("Hair Color Advanced Mode"),
+            variable=self.hair_color_advanced,
+            command=self.toggle_hair_color_mode,
+        )
+        self.chk_hair_color_advanced.grid(row=1, column=0, sticky="w", pady=(6, 0), columnspan=2)
 
-        ttk.Label(frame_visual, text=self.t("Skin Tone:")).grid(row=0, column=2, sticky="w")
-        self.skin_tone_var = tk.StringVar(value=cg.get_skin_tone_options()[0])
-        self.skin_tone_combo = ttk.Combobox(frame_visual, textvariable=self.skin_tone_var, state="readonly")
-        self.skin_tone_combo["values"] = cg.get_skin_tone_options()
-        self.skin_tone_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        hair_color_controls = ttk.Frame(frame_hair)
+        hair_color_controls.grid(row=1, column=2, columnspan=2, sticky="ew", pady=(6, 0))
+        hair_color_controls.columnconfigure(0, weight=1)
+        self.hair_colors = []
+        self.btn_add_hair_color = ttk.Button(
+            hair_color_controls,
+            text=self.t("Add Hair Color"),
+            command=self.add_hair_color,
+            width=12,
+            state=tk.DISABLED,
+        )
+        self.btn_add_hair_color.grid(row=0, column=0, sticky="w")
+        self.btn_clear_hair_colors = ttk.Button(
+            hair_color_controls,
+            text=self.t("Clear Hair Colors"),
+            command=self.clear_hair_colors,
+            width=12,
+            state=tk.DISABLED,
+        )
+        self.btn_clear_hair_colors.grid(row=0, column=1, sticky="w", padx=(6, 0))
 
-        ttk.Label(frame_visual, text=self.t("Hair Style:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        self.hair_style_var = tk.StringVar(value=cg.get_hair_style_options()[0])
-        self.hair_style_combo = ttk.Combobox(frame_visual, textvariable=self.hair_style_var, state="readonly")
-        self.hair_style_combo["values"] = cg.get_hair_style_options()
-        self.hair_style_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        self.hair_color_preview = ttk.Frame(frame_hair)
+        self.hair_color_preview.grid(row=2, column=2, columnspan=2, sticky="ew", pady=(4, 0))
+        self.hair_color_preview.columnconfigure(0, weight=1)
 
-        ttk.Label(frame_visual, text=self.t("Hair Color:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
-        self.hair_color_var = tk.StringVar(value=cg.get_hair_color_options()[0])
-        self.hair_color_combo = ttk.Combobox(frame_visual, textvariable=self.hair_color_var, state="readonly")
-        self.hair_color_combo["values"] = cg.get_hair_color_options()
-        self.hair_color_combo.grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        ttk.Label(frame_hair, text=self.t("Bangs Presence:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        bangs_presence_options = cg.get_bangs_presence_options(self.ui_lang)
+        self.bangs_presence_var = tk.StringVar(value=bangs_presence_options[0] if bangs_presence_options else "")
+        self.bangs_presence_combo = ttk.Combobox(frame_hair, textvariable=self.bangs_presence_var, state="readonly")
+        self.bangs_presence_combo["values"] = bangs_presence_options
+        self.bangs_presence_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        ttk.Label(frame_visual, text=self.t("Eye Color:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
-        self.eye_color_var = tk.StringVar(value=cg.get_eye_color_options()[0])
-        self.eye_color_combo = ttk.Combobox(frame_visual, textvariable=self.eye_color_var, state="readonly")
-        self.eye_color_combo["values"] = cg.get_eye_color_options()
-        self.eye_color_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        ttk.Label(frame_hair, text=self.t("Bangs Style:")).grid(row=3, column=2, sticky="w", pady=(6, 0))
+        bangs_style_options = cg.get_bangs_style_options(self.ui_lang)
+        self.bangs_style_var = tk.StringVar(value=bangs_style_options[0] if bangs_style_options else "")
+        self.bangs_style_combo = ttk.Combobox(frame_hair, textvariable=self.bangs_style_var, state="readonly")
+        self.bangs_style_combo["values"] = bangs_style_options
+        self.bangs_style_combo.grid(row=3, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_visual, text=self.t("Outfit Palette:")).grid(row=2, column=2, sticky="w", pady=(6, 0))
-        self.outfit_palette_var = tk.StringVar(value=cg.get_outfit_palette_options()[0])
-        self.outfit_palette_combo = ttk.Combobox(frame_visual, textvariable=self.outfit_palette_var, state="readonly")
-        self.outfit_palette_combo["values"] = cg.get_outfit_palette_options()
-        self.outfit_palette_combo.grid(row=2, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        frame_hair.columnconfigure(1, weight=1)
+        frame_hair.columnconfigure(3, weight=1)
 
-        ttk.Label(frame_visual, text=self.t("Material Finish:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
-        self.material_finish_var = tk.StringVar(value=cg.get_material_options()[0])
-        self.material_finish_combo = ttk.Combobox(frame_visual, textvariable=self.material_finish_var, state="readonly")
-        self.material_finish_combo["values"] = cg.get_material_options()
-        self.material_finish_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        # --- Face ---
+        frame_face = ttk.LabelFrame(left_col, text=self.t("Face"), padding=6)
+        frame_face.grid(row=2, column=0, sticky="nsew", pady=(0, 8))
+        frame_face.columnconfigure(1, weight=1)
+        frame_face.columnconfigure(3, weight=1)
 
-        frame_visual.columnconfigure(1, weight=1)
-        frame_visual.columnconfigure(3, weight=1)
+        ttk.Label(frame_face, text=self.t("Face Shape:")).grid(row=0, column=0, sticky="w")
+        face_shape_options = cg.get_face_shape_options(self.ui_lang)
+        self.face_shape_var = tk.StringVar(value=face_shape_options[0] if face_shape_options else "")
+        self.face_shape_combo = ttk.Combobox(frame_face, textvariable=self.face_shape_var, state="readonly")
+        self.face_shape_combo["values"] = face_shape_options
+        self.face_shape_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
 
-        # --- Detail Builder ---
-        frame_detail = ttk.LabelFrame(right_col, text=self.t("Detail Builder"), padding=6)
-        frame_detail.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
-        frame_detail.columnconfigure((0, 1, 2), weight=1)
-        frame_detail.rowconfigure((0, 1), weight=1)
+        ttk.Label(frame_face, text=self.t("Eye Size:")).grid(row=0, column=2, sticky="w")
+        eye_size_options = cg.get_eye_size_options(self.ui_lang)
+        self.eye_size_var = tk.StringVar(value=eye_size_options[0] if eye_size_options else "")
+        self.eye_size_combo = ttk.Combobox(frame_face, textvariable=self.eye_size_var, state="readonly")
+        self.eye_size_combo["values"] = eye_size_options
+        self.eye_size_combo.grid(row=0, column=3, sticky="ew", padx=(5, 0))
 
-        appearance_frame = ttk.Frame(frame_detail)
-        appearance_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6), pady=(0, 6))
-        ttk.Label(appearance_frame, text=self.t("Face & Skin")).grid(row=0, column=0, sticky="w")
-        appearance_list_frame = ttk.Frame(appearance_frame)
-        appearance_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.appearance_list = tk.Listbox(appearance_list_frame, selectmode=tk.MULTIPLE, height=6)
-        for option in cg.get_appearance_options():
-            self.appearance_list.insert(tk.END, option)
-        self.appearance_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll = ttk.Scrollbar(appearance_list_frame, orient="vertical", command=self.appearance_list.yview)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.appearance_list.config(yscrollcommand=scroll.set)
-        appearance_frame.columnconfigure(0, weight=1)
-        appearance_frame.rowconfigure(1, weight=1)
+        ttk.Label(frame_face, text=self.t("Nose Size:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        nose_size_options = cg.get_nose_size_options(self.ui_lang)
+        self.nose_size_var = tk.StringVar(value=nose_size_options[0] if nose_size_options else "")
+        self.nose_size_combo = ttk.Combobox(frame_face, textvariable=self.nose_size_var, state="readonly")
+        self.nose_size_combo["values"] = nose_size_options
+        self.nose_size_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        apparel_frame = ttk.Frame(frame_detail)
-        apparel_frame.grid(row=0, column=1, sticky="nsew", padx=6, pady=(0, 6))
+        ttk.Label(frame_face, text=self.t("Mouth Shape:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
+        mouth_shape_options = cg.get_mouth_shape_options(self.ui_lang)
+        self.mouth_shape_var = tk.StringVar(value=mouth_shape_options[0] if mouth_shape_options else "")
+        self.mouth_shape_combo = ttk.Combobox(frame_face, textvariable=self.mouth_shape_var, state="readonly")
+        self.mouth_shape_combo["values"] = mouth_shape_options
+        self.mouth_shape_combo.grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_face, text=self.t("Cheek Fullness:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        cheek_fullness_options = cg.get_cheek_fullness_options(self.ui_lang)
+        self.cheek_fullness_var = tk.StringVar(value=cheek_fullness_options[0] if cheek_fullness_options else "")
+        self.cheek_fullness_combo = ttk.Combobox(frame_face, textvariable=self.cheek_fullness_var, state="readonly")
+        self.cheek_fullness_combo["values"] = cheek_fullness_options
+        self.cheek_fullness_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+
+        ttk.Label(frame_face, text=self.t("Jaw Width:")).grid(row=2, column=2, sticky="w", pady=(6, 0))
+        jaw_width_options = cg.get_jaw_width_options(self.ui_lang)
+        self.jaw_width_var = tk.StringVar(value=jaw_width_options[0] if jaw_width_options else "")
+        self.jaw_width_combo = ttk.Combobox(frame_face, textvariable=self.jaw_width_var, state="readonly")
+        self.jaw_width_combo["values"] = jaw_width_options
+        self.jaw_width_combo.grid(row=2, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_face, text=self.t("Eye Color:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        eye_color_options = cg.get_eye_color_options(self.ui_lang)
+        self.eye_color_var = tk.StringVar(value=eye_color_options[0] if eye_color_options else "")
+        self.eye_color_combo = ttk.Combobox(frame_face, textvariable=self.eye_color_var, state="readonly")
+        self.eye_color_combo["values"] = eye_color_options
+        self.eye_color_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+
+        face_list_frame = ttk.Frame(frame_face)
+        face_list_frame.grid(row=4, column=0, columnspan=4, sticky="nsew", pady=(6, 0))
+        ttk.Label(face_list_frame, text=self.t("Face Features")).grid(row=0, column=0, sticky="w")
+        face_list_container = ttk.Frame(face_list_frame)
+        face_list_container.grid(row=1, column=0, sticky="nsew")
+        self.face_feature_list = tk.Listbox(face_list_container, selectmode=tk.MULTIPLE, height=6)
+        for option in cg.get_appearance_options(self.ui_lang):
+            self.face_feature_list.insert(tk.END, option)
+        self.face_feature_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        face_scroll = ttk.Scrollbar(face_list_container, orient="vertical", command=self.face_feature_list.yview)
+        face_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.face_feature_list.config(yscrollcommand=face_scroll.set)
+        face_list_frame.columnconfigure(0, weight=1)
+
+        # --- Artist Styles ---
+        frame_artists = ttk.LabelFrame(left_col, text=self.t("Artist Styles"), padding=6)
+        frame_artists.grid(row=3, column=0, sticky="nsew", pady=(0, 8))
+        frame_artists.columnconfigure(0, weight=1)
+        artist_list_frame = ttk.Frame(frame_artists)
+        artist_list_frame.grid(row=0, column=0, sticky="nsew")
+        self.artist_list = tk.Listbox(artist_list_frame, selectmode=tk.MULTIPLE, height=5)
+        self.artist_label_map = cg.get_artist_label_map(self.ui_lang)
+        for option in cg.get_artist_options(self.ui_lang):
+            self.artist_list.insert(tk.END, option)
+        self.artist_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        artist_scroll = ttk.Scrollbar(artist_list_frame, orient="vertical", command=self.artist_list.yview)
+        artist_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.artist_list.config(yscrollcommand=artist_scroll.set)
+        for i in range(self.artist_list.size()):
+            self.artist_list.selection_set(i)
+
+        # --- Outfit ---
+        frame_outfit = ttk.LabelFrame(right_col, text=self.t("Outfit"), padding=6)
+        frame_outfit.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
+        frame_outfit.columnconfigure(1, weight=1)
+        frame_outfit.columnconfigure(3, weight=1)
+
+        ttk.Label(frame_outfit, text=self.t("Outfit Type:")).grid(row=0, column=0, sticky="w")
+        outfit_type_options = cg.get_outfit_type_options(lang=self.ui_lang)
+        self.outfit_type_var = tk.StringVar(value=outfit_type_options[0] if outfit_type_options else "")
+        self.outfit_type_combo = ttk.Combobox(frame_outfit, textvariable=self.outfit_type_var, state="readonly")
+        self.outfit_type_combo["values"] = outfit_type_options
+        self.outfit_type_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
+
+        ttk.Label(frame_outfit, text=self.t("Outfit Colors:")).grid(row=0, column=2, sticky="w")
+        self.outfit_colors = []
+        color_controls = ttk.Frame(frame_outfit)
+        color_controls.grid(row=0, column=3, sticky="ew", padx=(5, 0))
+        color_controls.columnconfigure(0, weight=1)
+        self.btn_add_color = ttk.Button(color_controls, text=self.t("Add Color"), command=self.add_outfit_color, width=12)
+        self.btn_add_color.grid(row=0, column=0, sticky="w")
+        self.btn_clear_colors = ttk.Button(color_controls, text=self.t("Clear Colors"), command=self.clear_outfit_colors, width=12)
+        self.btn_clear_colors.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
+        self.color_preview_frame = ttk.Frame(frame_outfit)
+        self.color_preview_frame.grid(row=1, column=2, columnspan=2, sticky="ew", pady=(4, 0))
+        self.color_preview_frame.columnconfigure(0, weight=1)
+
+        ttk.Label(frame_outfit, text=self.t("Material Finish:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        material_options = cg.get_material_options(self.ui_lang)
+        self.material_finish_var = tk.StringVar(value=material_options[0] if material_options else "")
+        self.material_finish_combo = ttk.Combobox(frame_outfit, textvariable=self.material_finish_var, state="readonly")
+        self.material_finish_combo["values"] = material_options
+        self.material_finish_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+
+        apparel_frame = ttk.Frame(frame_outfit)
+        apparel_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(6, 0), padx=(0, 6))
         ttk.Label(apparel_frame, text=self.t("Apparel Details")).grid(row=0, column=0, sticky="w")
         apparel_list_frame = ttk.Frame(apparel_frame)
         apparel_list_frame.grid(row=1, column=0, sticky="nsew")
         self.apparel_list = tk.Listbox(apparel_list_frame, selectmode=tk.MULTIPLE, height=6)
-        for option in cg.get_apparel_detail_options():
+        for option in cg.get_apparel_detail_options(self.ui_lang):
             self.apparel_list.insert(tk.END, option)
         self.apparel_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_apparel = ttk.Scrollbar(apparel_list_frame, orient="vertical", command=self.apparel_list.yview)
         scroll_apparel.pack(side=tk.RIGHT, fill=tk.Y)
         self.apparel_list.config(yscrollcommand=scroll_apparel.set)
         apparel_frame.columnconfigure(0, weight=1)
-        apparel_frame.rowconfigure(1, weight=1)
 
-        accessory_frame = ttk.Frame(frame_detail)
-        accessory_frame.grid(row=0, column=2, sticky="nsew", padx=(6, 0), pady=(0, 6))
+        accessory_frame = ttk.Frame(frame_outfit)
+        accessory_frame.grid(row=3, column=2, columnspan=2, sticky="nsew", pady=(6, 0), padx=(6, 0))
         ttk.Label(accessory_frame, text=self.t("Accessories")).grid(row=0, column=0, sticky="w")
         accessory_list_frame = ttk.Frame(accessory_frame)
         accessory_list_frame.grid(row=1, column=0, sticky="nsew")
         self.accessory_list = tk.Listbox(accessory_list_frame, selectmode=tk.MULTIPLE, height=6)
-        for option in cg.get_accessory_options():
+        for option in cg.get_accessory_options(self.ui_lang):
             self.accessory_list.insert(tk.END, option)
         self.accessory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll_acc = ttk.Scrollbar(accessory_list_frame, orient="vertical", command=self.accessory_list.yview)
         scroll_acc.pack(side=tk.RIGHT, fill=tk.Y)
         self.accessory_list.config(yscrollcommand=scroll_acc.set)
         accessory_frame.columnconfigure(0, weight=1)
-        accessory_frame.rowconfigure(1, weight=1)
 
-        tech_frame = ttk.Frame(frame_detail)
-        tech_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
-        ttk.Label(tech_frame, text=self.t("Tech & Augments")).grid(row=0, column=0, sticky="w")
-        tech_list_frame = ttk.Frame(tech_frame)
-        tech_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.tech_list = tk.Listbox(tech_list_frame, selectmode=tk.MULTIPLE, height=6)
-        for option in cg.get_tech_detail_options():
-            self.tech_list.insert(tk.END, option)
-        self.tech_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_tech = ttk.Scrollbar(tech_list_frame, orient="vertical", command=self.tech_list.yview)
-        scroll_tech.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tech_list.config(yscrollcommand=scroll_tech.set)
-        tech_frame.columnconfigure(0, weight=1)
-        tech_frame.rowconfigure(1, weight=1)
+        # --- Misc ---
+        frame_misc = ttk.LabelFrame(right_col, text=self.t("Misc"), padding=6)
+        frame_misc.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
+        frame_misc.columnconfigure(0, weight=1)
 
-        mark_frame = ttk.Frame(frame_detail)
-        mark_frame.grid(row=1, column=1, sticky="nsew", padx=6)
-        ttk.Label(mark_frame, text=self.t("Marks & Insignia")).grid(row=0, column=0, sticky="w")
-        mark_list_frame = ttk.Frame(mark_frame)
-        mark_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.mark_list = tk.Listbox(mark_list_frame, selectmode=tk.MULTIPLE, height=6)
-        for option in cg.get_marking_options():
-            self.mark_list.insert(tk.END, option)
-        self.mark_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_mark = ttk.Scrollbar(mark_list_frame, orient="vertical", command=self.mark_list.yview)
-        scroll_mark.pack(side=tk.RIGHT, fill=tk.Y)
-        self.mark_list.config(yscrollcommand=scroll_mark.set)
-        mark_frame.columnconfigure(0, weight=1)
-        mark_frame.rowconfigure(1, weight=1)
+        ttk.Label(frame_misc, text=self.t("Misc Details")).grid(row=0, column=0, sticky="w")
+        misc_list_frame = ttk.Frame(frame_misc)
+        misc_list_frame.grid(row=1, column=0, sticky="nsew")
+        self.misc_list = tk.Listbox(misc_list_frame, selectmode=tk.MULTIPLE, height=6)
+        for option in cg.get_misc_options(self.ui_lang):
+            self.misc_list.insert(tk.END, option)
+        self.misc_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        misc_scroll = ttk.Scrollbar(misc_list_frame, orient="vertical", command=self.misc_list.yview)
+        misc_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.misc_list.config(yscrollcommand=misc_scroll.set)
 
-        # --- Custom Inputs & Actions ---
-        bottom_bar = ttk.Frame(parent)
-        bottom_bar.pack(fill=tk.X, pady=(0, 6))
-        bottom_bar.columnconfigure(1, weight=1)
-        bottom_bar.columnconfigure(3, weight=1)
+        ttk.Label(frame_misc, text=self.t("Custom misc (comma separated):")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.custom_misc_var = tk.StringVar()
+        ttk.Entry(frame_misc, textvariable=self.custom_misc_var).grid(row=3, column=0, sticky="ew", pady=(2, 0))
 
-        ttk.Label(bottom_bar, text=self.t("Custom visual details (comma separated):")).grid(row=0, column=0, sticky="w")
-        self.custom_details_var = tk.StringVar()
-        ttk.Entry(bottom_bar, textvariable=self.custom_details_var).grid(row=0, column=1, sticky="ew", padx=(6, 12))
-
-        ttk.Label(bottom_bar, text=self.t("Custom gear/tech (comma separated):")).grid(row=0, column=2, sticky="w")
-        self.custom_gear_var = tk.StringVar()
-        ttk.Entry(bottom_bar, textvariable=self.custom_gear_var).grid(row=0, column=3, sticky="ew", padx=(6, 0))
-
+        # --- Extra Modifiers ---
         action_bar = ttk.Frame(parent)
         action_bar.pack(fill=tk.X, pady=(2, 0))
         action_bar.columnconfigure(1, weight=1)
 
         ttk.Label(action_bar, text=self.t("Extra modifiers (optional):")).grid(row=0, column=0, sticky="w")
         self.extra_modifiers_var = tk.StringVar()
-        ttk.Entry(action_bar, textvariable=self.extra_modifiers_var).grid(row=0, column=1, sticky="ew", padx=(6, 12))
+        ttk.Entry(action_bar, textvariable=self.extra_modifiers_var).grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
-        self.btn_gen_character = ttk.Button(action_bar, text=self.t("GENERATE CHARACTER PROMPT"), command=self.generate_character_prompt)
-        self.btn_gen_character.grid(row=0, column=2, sticky="e", ipadx=10, ipady=6)
+        self.update_outfit_options()
+        self._bind_character_auto_update()
+        self.schedule_character_prompt_update()
         
     def setup_settings_tab(self):
         parent = self.tab_settings
@@ -1341,20 +1486,178 @@ class PromptApp:
                                              variation_name=var)
         
         self.set_output(prompt)
-    
-    def generate_character_prompt(self):
-        appearance = [self.appearance_list.get(i) for i in self.appearance_list.curselection()]
-        apparel_details = [self.apparel_list.get(i) for i in self.apparel_list.curselection()]
-        markings = [self.mark_list.get(i) for i in self.mark_list.curselection()]
-        custom_details = self.custom_details_var.get().strip()
-        if custom_details:
-            appearance.extend([f.strip() for f in custom_details.split(",") if f.strip()])
 
+    def _update_age_label(self):
+        value = int(float(self.age_scale.get()))
+        self.age_var.set(value)
+        descriptor = cg.get_age_descriptor(value) or ""
+        zh_map = {
+            "child": "儿童",
+            "teenager": "青少年",
+            "young adult": "青年",
+            "adult": "成年人",
+            "middle-aged adult": "中年",
+            "mature adult": "成熟成年人",
+        }
+        zh_desc = zh_map.get(descriptor, "")
+        if zh_desc:
+            label_text = f"{value} / {zh_desc}"
+        else:
+            label_text = f"{value}"
+        self.age_value_label.config(text=label_text)
+        self.schedule_character_prompt_update()
+
+    def toggle_hair_color_mode(self):
+        advanced = self.hair_color_advanced.get()
+        if advanced:
+            self.hair_color_combo.config(state=tk.DISABLED)
+            self.btn_add_hair_color.config(state=tk.NORMAL)
+            self.btn_clear_hair_colors.config(state=tk.NORMAL)
+        else:
+            self.hair_color_combo.config(state="readonly")
+            self.btn_add_hair_color.config(state=tk.DISABLED)
+            self.btn_clear_hair_colors.config(state=tk.DISABLED)
+            self.clear_hair_colors()
+        self.schedule_character_prompt_update()
+
+    def add_hair_color(self):
+        if len(self.hair_colors) >= 3:
+            messagebox.showinfo(self.t("Hair Colors:"), self.t("Max hair colors reached"))
+            return
+        color = colorchooser.askcolor(title=self.t("Hair Colors:"))[1]
+        if color:
+            self.hair_colors.append(color)
+            self._refresh_hair_colors()
+            self.schedule_character_prompt_update()
+
+    def clear_hair_colors(self):
+        if not self.hair_colors:
+            return
+        self.hair_colors = []
+        self._refresh_hair_colors()
+        self.schedule_character_prompt_update()
+
+    def _refresh_hair_colors(self):
+        for child in self.hair_color_preview.winfo_children():
+            child.destroy()
+        for idx, color in enumerate(self.hair_colors):
+            fg = "#000000"
+            try:
+                r = int(color[1:3], 16)
+                g = int(color[3:5], 16)
+                b = int(color[5:7], 16)
+                luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+                fg = "#000000" if luminance > 0.6 else "#ffffff"
+            except Exception:
+                fg = "#000000"
+            chip = tk.Label(self.hair_color_preview, text=color.upper(), bg=color, fg=fg, padx=6, pady=2)
+            chip.grid(row=0, column=idx, sticky="w", padx=(0, 4))
+
+    def add_outfit_color(self):
+        if len(self.outfit_colors) >= 5:
+            messagebox.showinfo(self.t("Outfit Colors:"), self.t("Max colors reached"))
+            return
+        color = colorchooser.askcolor(title=self.t("Outfit Colors:"))[1]
+        if color:
+            self.outfit_colors.append(color)
+            self._refresh_outfit_colors()
+            self.schedule_character_prompt_update()
+
+    def clear_outfit_colors(self):
+        if not self.outfit_colors:
+            return
+        self.outfit_colors = []
+        self._refresh_outfit_colors()
+        self.schedule_character_prompt_update()
+
+    def _refresh_outfit_colors(self):
+        for child in self.color_preview_frame.winfo_children():
+            child.destroy()
+        for idx, color in enumerate(self.outfit_colors):
+            fg = "#000000"
+            try:
+                r = int(color[1:3], 16)
+                g = int(color[3:5], 16)
+                b = int(color[5:7], 16)
+                luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+                fg = "#000000" if luminance > 0.6 else "#ffffff"
+            except Exception:
+                fg = "#000000"
+            chip = tk.Label(self.color_preview_frame, text=color.upper(), bg=color, fg=fg, padx=6, pady=2)
+            chip.grid(row=0, column=idx, sticky="w", padx=(0, 4))
+
+    def update_outfit_options(self, event=None):
+        profession = self.profession_var.get()
+        options = cg.get_outfit_type_options(profession, self.ui_lang)
+        self.outfit_type_combo["values"] = options
+        if self.outfit_type_var.get() not in options:
+            self.outfit_type_var.set(options[0] if options else "")
+        self.schedule_character_prompt_update()
+
+    def _bind_character_auto_update(self):
+        vars_to_watch = [
+            self.gender_var,
+            self.age_var,
+            self.profession_var,
+            self.custom_profession_var,
+            self.body_type_var,
+            self.skin_tone_var,
+            self.framing_var,
+            self.aspect_ratio_var,
+            self.expression_var,
+            self.gaze_var,
+            self.hair_style_var,
+            self.hair_color_var,
+            self.hair_color_advanced,
+            self.bangs_presence_var,
+            self.bangs_style_var,
+            self.face_shape_var,
+            self.eye_size_var,
+            self.nose_size_var,
+            self.mouth_shape_var,
+            self.cheek_fullness_var,
+            self.jaw_width_var,
+            self.eye_color_var,
+            self.outfit_type_var,
+            self.material_finish_var,
+            self.custom_misc_var,
+            self.extra_modifiers_var,
+        ]
+        for var in vars_to_watch:
+            var.trace_add("write", self.schedule_character_prompt_update)
+
+        listboxes = [
+            self.face_feature_list,
+            self.apparel_list,
+            self.accessory_list,
+            self.misc_list,
+            self.artist_list,
+        ]
+        for lb in listboxes:
+            lb.bind("<<ListboxSelect>>", self.schedule_character_prompt_update)
+
+    def schedule_character_prompt_update(self, *_):
+        if getattr(self, "_character_update_pending", False):
+            return
+        self._character_update_pending = True
+        self.root.after(50, self._run_character_prompt_update)
+
+    def _run_character_prompt_update(self):
+        self._character_update_pending = False
+        try:
+            self.generate_character_prompt()
+        except Exception:
+            pass
+
+    def generate_character_prompt(self):
+        face_features = [self.face_feature_list.get(i) for i in self.face_feature_list.curselection()]
+        apparel_details = [self.apparel_list.get(i) for i in self.apparel_list.curselection()]
         accessories = [self.accessory_list.get(i) for i in self.accessory_list.curselection()]
-        tech_details = [self.tech_list.get(i) for i in self.tech_list.curselection()]
-        custom_gear = self.custom_gear_var.get().strip()
-        if custom_gear:
-            accessories.extend([f.strip() for f in custom_gear.split(",") if f.strip()])
+        misc_details = [self.misc_list.get(i) for i in self.misc_list.curselection()]
+        artists = [self.artist_label_map.get(self.artist_list.get(i), self.artist_list.get(i)) for i in self.artist_list.curselection()]
+        custom_misc = self.custom_misc_var.get().strip()
+        if custom_misc:
+            misc_details.extend([f.strip() for f in custom_misc.split(",") if f.strip()])
         
         prompt = cg.generate_character_prompt(
             gender=self.gender_var.get(),
@@ -1364,18 +1667,29 @@ class PromptApp:
             aspect_ratio=self.aspect_ratio_var.get(),
             expression=self.expression_var.get(),
             gaze=self.gaze_var.get(),
-            appearance_features=appearance,
+            appearance_features=face_features,
             apparel_details=apparel_details,
-            markings=markings,
             body_type=self.body_type_var.get(),
             skin_tone=self.skin_tone_var.get(),
             hair_style=self.hair_style_var.get(),
             hair_color=self.hair_color_var.get(),
+            hair_colors=self.hair_colors if self.hair_color_advanced.get() else [],
+            hair_bangs_presence=self.bangs_presence_var.get(),
+            hair_bangs_style=self.bangs_style_var.get(),
+            face_shape=self.face_shape_var.get(),
+            eye_size=self.eye_size_var.get(),
+            nose_size=self.nose_size_var.get(),
+            mouth_shape=self.mouth_shape_var.get(),
+            cheek_fullness=self.cheek_fullness_var.get(),
+            jaw_width=self.jaw_width_var.get(),
             eye_color=self.eye_color_var.get(),
-            outfit_palette=self.outfit_palette_var.get(),
+            outfit_type=self.outfit_type_var.get(),
             material_finish=self.material_finish_var.get(),
             accessories=accessories,
-            tech_details=tech_details,
+            misc_details=misc_details,
+            outfit_colors=self.outfit_colors,
+            artists=artists,
+            lang=self.ui_lang,
             custom_profession=self.custom_profession_var.get(),
             extra_modifiers=self.extra_modifiers_var.get(),
         )

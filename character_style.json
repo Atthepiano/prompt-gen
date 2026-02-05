@@ -1,5 +1,15 @@
 {
-  "style": "(masterpiece, best quality), authentic early-1990s Japanese OVA anime key visual, PC-98 era Japanese computer game illustration, hand-painted cel shading, clean lineart, crisp forms, controlled rim lighting, deep shadows, soft airbrush gradients, subtle color banding, balanced contrast, iconic 90s character design with striking presence, sharp angles, realistic facial proportions, cinematic composition, analog texture, style of Haruhiko Mikimoto, Yoshiyuki Sadamoto, Kitazume Hiroyuki.",
+  "style": "(masterpiece, best quality), authentic early-1990s Japanese OVA anime key visual, PC-98 era Japanese computer game illustration, hand-painted cel shading, flat color fills, hard-edged shadow shapes, clean lineart, limited palette, subtle color banding, minimal gradients, bold graphic silhouettes, iconic 90s character design with striking presence, sharp angles, analog texture.",
   "background": "simple pure white background, flat white background, isolated on white.",
-  "mood": "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, matte finish, clean paint layers, no oily or glossy look."
+  "mood": "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, matte finish, clean paint layers, no oily or glossy look, no 3d, no cgi, no photorealism, no digital painting look, no painterly brushwork, no thick paint, no heavy impasto, no soft focus, no depth of field.",
+  "artists": [
+    {"name": "Haruhiko Mikimoto", "work": {"en": "The Super Dimension Fortress Macross", "zh": "超时空要塞"} },
+    {"name": "Yoshiyuki Sadamoto", "work": {"en": "Neon Genesis Evangelion", "zh": "新世纪福音战士"} },
+    {"name": "Hiroyuki Kitazume", "work": {"en": "Mobile Suit Zeta Gundam", "zh": "机动战士Z高达"} },
+    {"name": "Masami Obari", "work": {"en": "Detonator Orgun", "zh": "破坏者奥钢"} },
+    {"name": "Yasuhiro Nightow", "work": {"en": "Trigun", "zh": "枪神"} },
+    {"name": "Yoshitaka Amano", "work": {"en": "Final Fantasy", "zh": "最终幻想"} },
+    {"name": "Mamoru Nagano", "work": {"en": "The Five Star Stories", "zh": "五星物语"} },
+    {"name": "Katsuhiro Otomo", "work": {"en": "Akira", "zh": "阿基拉"} }
+  ]
 }

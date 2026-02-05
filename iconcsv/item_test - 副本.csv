@@ -24,9 +24,9 @@
 作战靴,标准军用，平衡属性。,,combat_boots
 磁力靴,经典标配。开启后免疫击飞，但移动缓慢，有独特的金属脚步声。,,magnetic_shoes
 抓地鞋,鞋底是壁虎仿生材料，可以在光滑的无重力舱壁上奔跑。,,traction_shoes
-喷气靴,脚后跟带微型喷口，增加闪避率，或者在太空中冲刺。,,error_504_(server_error)!!1504.that’s_an_error.there_was_an_error._please_try_again_later.that’s_all_we_know.
+喷气靴,脚后跟带微型喷口，增加闪避率，或者在太空中冲刺。,,jet_boots
 伺服战靴,增加跳跃高度/减少跌落伤害。,,servo_boots
-义体刀锋,没有脚，就是两根尖锐的金属刺。跑得快，踢人就是刺击伤害。,,error_504_(server_error)!!1504.that’s_an_error.there_was_an_error._please_try_again_later.that’s_all_we_know.
+义体刀锋,没有脚，就是两根尖锐的金属刺。跑得快，踢人就是刺击伤害。,,prosthetic_blade
 小挎包,不减属性，容量小。,,small_shoulder_bag
 大背包,容量大，减少战斗属性。,,big_backpack
 硬壳箱,物品不会因战斗受损，容量中等。,,hard_shell_case
