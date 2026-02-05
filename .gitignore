@@ -31,3 +31,4 @@ build/
 dist/
 *.spec
 *.zip
+/config.json
