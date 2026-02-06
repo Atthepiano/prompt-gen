@@ -53,6 +53,7 @@ def generate_image_bytes(
     api_key: str,
     model: str = DEFAULT_MODEL,
     reference_images: Optional[List[Tuple[bytes, Optional[str]]]] = None,
+    text_last: bool = False,
 ) -> Tuple[bytes, Optional[str]]:
     if not api_key:
         raise GeminiError("Missing API key.")
@@ -62,7 +63,7 @@ def generate_image_bytes(
 
     base_url = _get_api_base_url(api_key)
     url = f"{base_url}/v1beta/{model_path}:generateContent?key={api_key}"
-    parts = [{"text": prompt}]
+    parts = []
     if reference_images:
         for image_bytes, image_mime in reference_images:
             if not image_bytes:
@@ -70,6 +71,10 @@ def generate_image_bytes(
             mime_type = image_mime or "image/png"
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
             parts.append({"inline_data": {"mime_type": mime_type, "data": image_b64}})
+    if text_last or not parts:
+        parts.append({"text": prompt})
+    else:
+        parts.insert(0, {"text": prompt})
 
     payload = {
         "contents": [
@@ -80,6 +85,7 @@ def generate_image_bytes(
         ],
         "generationConfig": {
             "temperature": 0.7,
+            "responseModalities": ["IMAGE"],
         },
     }
 

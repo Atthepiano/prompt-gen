@@ -191,7 +191,12 @@
     ["lab coat", "研究员白袍"],
     ["diplomatic attire", "外交正装"],
     ["android bodysuit", "仿生紧身衣"],
-    ["plugsuit", "紧身驾驶服"]
+    ["plugsuit", "紧身驾驶服"],
+    ["school uniform", "校服"],
+    ["casual streetwear", "日常便装"],
+    ["civilian workwear", "市民工装"],
+    ["layered travel clothing", "分层旅行装"],
+    ["ragged clothing", "破旧衣物"]
   ],
   "material_options": [
     ["Unspecified", "未指定"],
@@ -295,17 +300,20 @@
     ["maintenance markings", "维护标记"]
   ],
   "profession_outfits": {
-    "Space Pilot": ["uniform", "flight suit", "plugsuit", "pilot jacket"],
-    "Navigator": ["uniform", "flight suit", "pilot jacket"],
-    "Starship Engineer": ["mechanic coveralls", "tactical uniform", "uniform"],
+    "Space Pilot": ["flight suit", "pilot jacket", "uniform"],
+    "Navigator": ["uniform", "flight suit"],
+    "Starship Engineer": ["mechanic coveralls", "civilian workwear", "uniform"],
     "Mech Technician": ["mechanic coveralls", "tactical uniform"],
     "Station Security": ["tactical uniform", "uniform"],
     "Bounty Hunter": ["tactical uniform", "pilot jacket", "explorer gear"],
-    "Explorer": ["explorer gear", "flight suit", "pilot jacket"],
-    "Smuggler": ["pilot jacket", "explorer gear", "tactical uniform"],
-    "Scientist": ["lab coat", "uniform"],
+    "Explorer": ["explorer gear", "flight suit", "layered travel clothing"],
+    "Smuggler": ["pilot jacket", "casual streetwear", "explorer gear"],
+    "Scientist": ["lab coat", "civilian workwear"],
     "Medic": ["lab coat", "uniform", "tactical uniform"],
     "Diplomat": ["diplomatic attire", "uniform"],
-    "Android": ["android bodysuit", "uniform"]
+    "Android": ["android bodysuit", "uniform"],
+    "Student": ["school uniform", "casual streetwear"],
+    "Civilian": ["casual streetwear", "civilian workwear"],
+    "Drifter": ["layered travel clothing", "ragged clothing"]
   }
 }

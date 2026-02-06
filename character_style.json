@@ -1,7 +1,7 @@
 {
-  "style": "(masterpiece, best quality), authentic early-1990s Japanese OVA anime key visual, PC-98 era Japanese computer game illustration, hand-painted cel shading, flat color fills, hard-edged shadow shapes, clean lineart, limited palette, subtle color banding, minimal gradients, bold graphic silhouettes, iconic 90s character design with striking presence, sharp angles, analog texture.",
+  "style": "(masterpiece, best quality), late-1980s to early-2000s Japanese mecha OVA or theatrical key visual, real-robot anime aesthetic, hand-drawn cel animation still, hand-painted cel shading, flat color fills, hard-edged shadow shapes, clean lineart, limited palette, subtle color banding, minimal gradients, bold graphic silhouettes, utilitarian military sci-fi design, realistic 90s facial proportions, restrained eye highlights, cinematic composition, analog texture.",
   "background": "simple pure white background, flat white background, isolated on white.",
-  "mood": "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, matte finish, clean paint layers, no oily or glossy look, no 3d, no cgi, no photorealism, no digital painting look, no painterly brushwork, no thick paint, no heavy impasto, no soft focus, no depth of field.",
+  "mood": "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, matte finish, clean paint layers, subtle cel misregistration, analog video texture, no oily or glossy look, no modern anime sheen, no oversized eyes, no soft glow, no 3d, no cgi, no photorealism, no digital painting look, no painterly brushwork, no thick paint, no heavy impasto, no soft focus, no depth of field.",
   "artists": [
     {"name": "Haruhiko Mikimoto", "work": {"en": "The Super Dimension Fortress Macross", "zh": "超时空要塞"} },
     {"name": "Yoshiyuki Sadamoto", "work": {"en": "Neon Genesis Evangelion", "zh": "新世纪福音战士"} },

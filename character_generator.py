@@ -3,19 +3,20 @@ import json
 import os
 
 DEFAULT_STYLE = (
-    "(masterpiece, best quality), authentic early-1990s Japanese OVA anime key visual, "
-    "PC-98 era Japanese computer game illustration, hand-painted cel shading, "
+    "(masterpiece, best quality), late-1980s to early-2000s Japanese mecha OVA or theatrical key visual, "
+    "real-robot anime aesthetic, hand-drawn cel animation still, hand-painted cel shading, "
     "flat color fills, hard-edged shadow shapes, clean lineart, crisp forms, "
     "limited palette, subtle color banding, minimal gradients, bold graphic silhouettes, "
-    "iconic 90s character design with striking presence, sharp angles, realistic facial proportions, "
+    "utilitarian military sci-fi design, realistic 90s facial proportions, restrained eye highlights, "
     "cinematic composition, analog texture."
 )
 
 DEFAULT_BACKGROUND = "simple pure white background, flat white background, isolated on white."
 DEFAULT_MOOD = (
     "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, "
-    "matte finish, clean paint layers, no oily or glossy look, no 3d, no cgi, "
-    "no photorealism, no digital painting look, no painterly brushwork, "
+    "matte finish, clean paint layers, subtle cel misregistration, analog video texture, "
+    "no oily or glossy look, no modern anime sheen, no oversized eyes, no soft glow, "
+    "no 3d, no cgi, no photorealism, no digital painting look, no painterly brushwork, "
     "no thick paint, no heavy impasto, no soft focus, no depth of field."
 )
 
@@ -442,6 +443,11 @@ OUTFIT_TYPE_OPTION_PAIRS = [
     ("diplomatic attire", "外交正装"),
     ("android bodysuit", "仿生紧身衣"),
     ("plugsuit", "紧身驾驶服"),
+    ("school uniform", "校服"),
+    ("casual streetwear", "日常便装"),
+    ("civilian workwear", "市民工装"),
+    ("layered travel clothing", "分层旅行装"),
+    ("ragged clothing", "破旧衣物"),
 ]
 MATERIAL_OPTION_PAIRS = [
     ("Unspecified", "未指定"),
@@ -577,7 +583,7 @@ MISC_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "misc_details", MISC_OPTIO
 
 PROFESSION_PRESETS: Dict[str, Dict[str, str]] = {
     "Space Pilot": {
-        "role": "sci-fi space pilot",
+        "role": "real-robot era space pilot",
     },
     "Starship Engineer": {
         "role": "starship engineer",
@@ -589,7 +595,7 @@ PROFESSION_PRESETS: Dict[str, Dict[str, str]] = {
         "role": "space station security officer",
     },
     "Scientist": {
-        "role": "sci-fi research scientist",
+        "role": "research scientist",
     },
     "Navigator": {
         "role": "ship navigator",
@@ -612,6 +618,15 @@ PROFESSION_PRESETS: Dict[str, Dict[str, str]] = {
     "Android": {
         "role": "human-like android",
     },
+    "Student": {
+        "role": "space colony student",
+    },
+    "Civilian": {
+        "role": "space colony civilian",
+    },
+    "Drifter": {
+        "role": "space colony drifter",
+    },
 }
 
 PROFESSION_OPTION_PAIRS = [
@@ -627,21 +642,27 @@ PROFESSION_OPTION_PAIRS = [
     ("Explorer", "探险者"),
     ("Diplomat", "外交官"),
     ("Android", "仿生人"),
+    ("Student", "学生"),
+    ("Civilian", "普通市民"),
+    ("Drifter", "流浪汉"),
 ]
 
 PROFESSION_OUTFIT_MAP: Dict[str, List[str]] = {
-    "Space Pilot": ["uniform", "flight suit", "plugsuit", "pilot jacket"],
-    "Navigator": ["uniform", "flight suit", "pilot jacket"],
-    "Starship Engineer": ["mechanic coveralls", "tactical uniform", "uniform"],
+    "Space Pilot": ["flight suit", "pilot jacket", "uniform"],
+    "Navigator": ["uniform", "flight suit"],
+    "Starship Engineer": ["mechanic coveralls", "civilian workwear", "uniform"],
     "Mech Technician": ["mechanic coveralls", "tactical uniform"],
     "Station Security": ["tactical uniform", "uniform"],
     "Bounty Hunter": ["tactical uniform", "pilot jacket", "explorer gear"],
-    "Explorer": ["explorer gear", "flight suit", "pilot jacket"],
-    "Smuggler": ["pilot jacket", "explorer gear", "tactical uniform"],
-    "Scientist": ["lab coat", "uniform"],
+    "Explorer": ["explorer gear", "flight suit", "layered travel clothing"],
+    "Smuggler": ["pilot jacket", "casual streetwear", "explorer gear"],
+    "Scientist": ["lab coat", "civilian workwear"],
     "Medic": ["lab coat", "uniform", "tactical uniform"],
     "Diplomat": ["diplomatic attire", "uniform"],
     "Android": ["android bodysuit", "uniform"],
+    "Student": ["school uniform", "casual streetwear"],
+    "Civilian": ["casual streetwear", "civilian workwear"],
+    "Drifter": ["layered travel clothing", "ragged clothing"],
 }
 
 if isinstance(OPTIONS_CONFIG.get("profession_outfits"), dict):
@@ -870,7 +891,7 @@ def _format_subject(
     if features:
         feature_text = " with " + ", ".join(features)
 
-    outfit_text = f"{outfit}" if outfit else "wearing a retro-futuristic outfit"
+    outfit_text = f"{outfit}" if outfit else "wearing a late-20th-century military sci-fi uniform"
     if outfit_type and outfit_type != "Unspecified":
         if outfit:
             outfit_text = f"{outfit_text} styled as {outfit_type}"
@@ -1003,7 +1024,10 @@ def generate_character_prompt(
         if artists:
             artist_text = ", ".join([a.strip() for a in artists if a.strip()])
             if artist_text:
-                style_line = f"{style_line} style of {artist_text}."
+                style_line = (
+                    f"{style_line} strongly in the style of {artist_text}, "
+                    f"character design and lineart influenced by {artist_text}."
+                )
         parts = [style_line, ""] + parts
     if include_background:
         parts.extend(["", style_cfg["background"]])

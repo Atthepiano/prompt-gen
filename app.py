@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import prompt_generator as pg
 import item_generator as ig
 import character_generator as cg
+import clothing_generator as clg
 import gemini_service as gs
 import slicer_tool as st
 import curation_tool as ct
@@ -22,6 +23,7 @@ UI_TEXTS_ZH = {
     "Spaceship Components": "飞船组件",
     "Item Icons": "物品图标",
     "Character Prompts": "角色提示词",
+    "Clothing Presets": "服装预设",
     "Image Slicer": "图片切分",
     "Asset Curation": "资产整理",
     "Settings": "设置",
@@ -37,6 +39,8 @@ UI_TEXTS_ZH = {
     "Grid View": "网格视图",
     "Previous": "上一张",
     "Next": "下一张",
+    "Save Selected": "保存当前",
+    "Discard Selected": "丢弃当前",
     "Edit Prompt:": "修改提示：",
     "Apply Edit": "执行改图",
     "Cancel": "取消",
@@ -85,6 +89,37 @@ UI_TEXTS_ZH = {
     "Skip / Discard All": "跳过 / 全部丢弃",
     "Character Prompt Generation": "角色提示词生成",
     "Build a modular character prompt for retro sci-fi anime portraits.": "构建复古科幻动漫人像的模块化提示词。",
+    "Clothing Preset Generation": "服装预设生成",
+    "Build a modular clothing preset prompt for retro sci-fi outfit sheets.": "构建复古科幻服装预设图的模块化提示词。",
+    "Faction & Role": "势力与角色",
+    "Gender:": "男/女装：",
+    "Faction:": "势力：",
+    "Role Archetype:": "角色类型：",
+    "No faction description": "暂无势力描述",
+    "Presentation & Layout": "呈现与构图",
+    "View Mode:": "视图模式：",
+    "Pose:": "姿势：",
+    "Presentation:": "呈现方式：",
+    "Swap-ready mannequin spec (future workflow)": "换装兼容人台规范（后续流程）",
+    "Outfit Build": "服装构成",
+    "Outfit Category:": "服装类别：",
+    "Silhouette:": "轮廓：",
+    "Layering:": "层次结构：",
+    "Material:": "材质：",
+    "Palette:": "配色：",
+    "Wear State:": "使用磨损：",
+    "Detail Accents": "服装细节",
+    "Insignia & Markings": "标识与徽记",
+    "Custom notes (comma separated):": "自定义备注（逗号分隔）：",
+    "Outfit Swap (Preview)": "换装预览（占位）",
+    "Character Image:": "角色图：",
+    "Clothing Preset Image:": "服装预设图：",
+    "Select Character Image...": "选择角色图...",
+    "Select Clothing Image...": "选择服装图...",
+    "No image selected": "未选择图片",
+    "Output Name:": "输出名称：",
+    "Run Outfit Swap (Gemini)": "执行换装（Gemini）",
+    "Select character and clothing images first.": "请先选择角色图与服装图。",
     "Core Descriptors": "基础",
     "Gender:": "性别：",
     "Age:": "年龄：",
@@ -270,15 +305,19 @@ class PromptApp:
         self.tab_characters = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_characters, text=self.t("Character Prompts"))
 
-        # Tab 4: Image Slicer
+        # Tab 4: Clothing Presets
+        self.tab_clothing = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_clothing, text=self.t("Clothing Presets"))
+
+        # Tab 5: Image Slicer
         self.tab_slicer = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_slicer, text=self.t("Image Slicer"))
 
-        # Tab 5: Asset Curation
+        # Tab 6: Asset Curation
         self.tab_curation = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_curation, text=self.t("Asset Curation"))
 
-        # Tab 6: Settings
+        # Tab 7: Settings
         self.tab_settings = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_settings, text=self.t("Settings"))
 
@@ -290,17 +329,20 @@ class PromptApp:
         
         # --- Setup Tab 3: Character Controls ---
         self.setup_character_tab()
+
+        # --- Setup Tab 4: Clothing Controls ---
+        self.setup_clothing_tab()
         
-        # --- Setup Tab 4: Slicer Controls ---
+        # --- Setup Tab 5: Slicer Controls ---
         self.setup_slicer_tab()
 
-        # --- Setup Tab 5: Curation Controls ---
+        # --- Setup Tab 6: Curation Controls ---
         self.curator = ct.AssetCurator()
         self.curation_queue = [] # List of filenames to process
         self.current_curation_index = 0
         self.setup_curation_tab()
         
-        # --- Setup Tab 6: Settings ---
+        # --- Setup Tab 7: Settings ---
         self.setup_settings_tab()
 
         # --- Output Area (Right) ---
@@ -509,6 +551,8 @@ class PromptApp:
         main.pack(fill=tk.BOTH, expand=True)
         main.columnconfigure(0, weight=1)
         main.columnconfigure(1, weight=1)
+        main.rowconfigure(0, weight=1)
+        main.rowconfigure(0, weight=1)
         main.rowconfigure(0, weight=1)
 
         left_col = ttk.Frame(main)
@@ -903,6 +947,371 @@ class PromptApp:
         self.update_outfit_options()
         self._bind_character_auto_update()
         self.schedule_character_prompt_update()
+
+    def setup_clothing_tab(self):
+        parent = self.tab_clothing
+        header = ttk.Frame(parent)
+        header.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(header, text=self.t("Clothing Preset Generation"), font=("Arial", 14, "bold")).pack(anchor="w")
+        ttk.Label(
+            header,
+            text=self.t("Build a modular clothing preset prompt for retro sci-fi outfit sheets."),
+            wraplength=480,
+        ).pack(anchor="w")
+
+        main = ttk.Frame(parent)
+        main.pack(fill=tk.BOTH, expand=True)
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
+
+        left_col = ttk.Frame(main)
+        right_col = ttk.Frame(main)
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        right_col.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        # --- Faction & Role ---
+        frame_faction = ttk.LabelFrame(left_col, text=self.t("Faction & Role"), padding=6)
+        frame_faction.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        frame_faction.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_faction, text=self.t("Faction:")).grid(row=0, column=0, sticky="w")
+        faction_options = clg.get_faction_options(self.ui_lang)
+        self.faction_var = tk.StringVar(value=faction_options[0] if faction_options else "")
+        self.faction_combo = ttk.Combobox(frame_faction, textvariable=self.faction_var, state="readonly")
+        self.faction_combo["values"] = faction_options
+        self.faction_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        self.faction_combo.bind("<<ComboboxSelected>>", self.update_clothing_faction_desc)
+
+        ttk.Label(frame_faction, text=self.t("Gender:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        gender_options = clg.get_gender_options(self.ui_lang)
+        self.clothing_gender_var = tk.StringVar(value=gender_options[0] if gender_options else "")
+        self.clothing_gender_combo = ttk.Combobox(frame_faction, textvariable=self.clothing_gender_var, state="readonly")
+        self.clothing_gender_combo["values"] = gender_options
+        self.clothing_gender_combo.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_faction, text=self.t("Role Archetype:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        role_options = clg.get_role_options(self.ui_lang)
+        self.role_var = tk.StringVar(value=role_options[0] if role_options else "")
+        self.role_combo = ttk.Combobox(frame_faction, textvariable=self.role_var, state="readonly")
+        self.role_combo["values"] = role_options
+        self.role_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        self.faction_desc_map = clg.get_faction_description_map(self.ui_lang)
+        self.lbl_faction_desc = ttk.Label(frame_faction, text="", foreground="gray", wraplength=340)
+        self.lbl_faction_desc.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        self.update_clothing_faction_desc()
+
+        # --- Presentation & Layout ---
+        frame_layout = ttk.LabelFrame(left_col, text=self.t("Presentation & Layout"), padding=6)
+        frame_layout.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        frame_layout.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_layout, text=self.t("View Mode:")).grid(row=0, column=0, sticky="w")
+        view_mode_options = clg.get_view_mode_options(self.ui_lang)
+        view_mode_default = next(
+            (opt for opt in view_mode_options if ("单一正面全身" in opt or "single full-body front" in opt)),
+            view_mode_options[0] if view_mode_options else "",
+        )
+        self.view_mode_var = tk.StringVar(value=view_mode_default)
+        self.view_mode_combo = ttk.Combobox(frame_layout, textvariable=self.view_mode_var, state="readonly")
+        self.view_mode_combo["values"] = view_mode_options
+        self.view_mode_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+        ttk.Label(frame_layout, text=self.t("Aspect Ratio:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        aspect_ratio_options = clg.get_aspect_ratio_options(self.ui_lang)
+        aspect_ratio_default = next(
+            (opt for opt in aspect_ratio_options if "1:1" in opt),
+            aspect_ratio_options[0] if aspect_ratio_options else "",
+        )
+        self.clothing_aspect_ratio_var = tk.StringVar(value=aspect_ratio_default)
+        self.clothing_aspect_ratio_combo = ttk.Combobox(
+            frame_layout, textvariable=self.clothing_aspect_ratio_var, state="readonly"
+        )
+        self.clothing_aspect_ratio_combo["values"] = aspect_ratio_options
+        self.clothing_aspect_ratio_combo.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_layout, text=self.t("Pose:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        pose_options = clg.get_pose_options(self.ui_lang)
+        pose_default = next(
+            (opt for opt in pose_options if ("中性 A 字站姿人台" in opt or "neutral A-pose mannequin" in opt)),
+            pose_options[0] if pose_options else "",
+        )
+        self.pose_var = tk.StringVar(value=pose_default)
+        self.pose_combo = ttk.Combobox(frame_layout, textvariable=self.pose_var, state="readonly")
+        self.pose_combo["values"] = pose_options
+        self.pose_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_layout, text=self.t("Presentation:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        presentation_options = clg.get_presentation_options(self.ui_lang)
+        presentation_default = next(
+            (opt for opt in presentation_options if ("平铺展示" in opt or "flat lay garment layout" in opt)),
+            presentation_options[0] if presentation_options else "",
+        )
+        self.presentation_var = tk.StringVar(value=presentation_default)
+        self.presentation_combo = ttk.Combobox(frame_layout, textvariable=self.presentation_var, state="readonly")
+        self.presentation_combo["values"] = presentation_options
+        self.presentation_combo.grid(row=3, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        # --- Outfit Build ---
+        frame_outfit = ttk.LabelFrame(right_col, text=self.t("Outfit Build"), padding=6)
+        frame_outfit.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        frame_outfit.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_outfit, text=self.t("Outfit Category:")).grid(row=0, column=0, sticky="w")
+        outfit_options = clg.get_outfit_category_options(self.ui_lang)
+        self.outfit_category_var = tk.StringVar(value=outfit_options[0] if outfit_options else "")
+        self.outfit_category_combo = ttk.Combobox(
+            frame_outfit, textvariable=self.outfit_category_var, state="readonly"
+        )
+        self.outfit_category_combo["values"] = outfit_options
+        self.outfit_category_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Silhouette:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        silhouette_options = clg.get_silhouette_options(self.ui_lang)
+        self.silhouette_var = tk.StringVar(value=silhouette_options[0] if silhouette_options else "")
+        self.silhouette_combo = ttk.Combobox(frame_outfit, textvariable=self.silhouette_var, state="readonly")
+        self.silhouette_combo["values"] = silhouette_options
+        self.silhouette_combo.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Layering:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        layering_options = clg.get_layering_options(self.ui_lang)
+        self.layering_var = tk.StringVar(value=layering_options[0] if layering_options else "")
+        self.layering_combo = ttk.Combobox(frame_outfit, textvariable=self.layering_var, state="readonly")
+        self.layering_combo["values"] = layering_options
+        self.layering_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Material:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        material_options = clg.get_material_options(self.ui_lang)
+        self.clothing_material_var = tk.StringVar(value=material_options[0] if material_options else "")
+        self.clothing_material_combo = ttk.Combobox(
+            frame_outfit, textvariable=self.clothing_material_var, state="readonly"
+        )
+        self.clothing_material_combo["values"] = material_options
+        self.clothing_material_combo.grid(row=3, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Palette:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        palette_options = clg.get_palette_options(self.ui_lang)
+        self.palette_var = tk.StringVar(value=palette_options[0] if palette_options else "")
+        self.palette_combo = ttk.Combobox(frame_outfit, textvariable=self.palette_var, state="readonly")
+        self.palette_combo["values"] = palette_options
+        self.palette_combo.grid(row=4, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Wear State:")).grid(row=5, column=0, sticky="w", pady=(6, 0))
+        wear_state_options = clg.get_wear_state_options(self.ui_lang)
+        self.wear_state_var = tk.StringVar(value=wear_state_options[0] if wear_state_options else "")
+        self.wear_state_combo = ttk.Combobox(frame_outfit, textvariable=self.wear_state_var, state="readonly")
+        self.wear_state_combo["values"] = wear_state_options
+        self.wear_state_combo.grid(row=5, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        # --- Detail Accents ---
+        frame_details = ttk.LabelFrame(right_col, text=self.t("Detail Accents"), padding=6)
+        frame_details.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
+        detail_list_frame = ttk.Frame(frame_details)
+        detail_list_frame.pack(fill=tk.BOTH, expand=True)
+        self.detail_accent_list = tk.Listbox(
+            detail_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=5,
+            exportselection=False,
+        )
+        for option in clg.get_detail_accent_options(self.ui_lang):
+            self.detail_accent_list.insert(tk.END, option)
+        self.detail_accent_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        detail_scroll = ttk.Scrollbar(detail_list_frame, orient="vertical", command=self.detail_accent_list.yview)
+        detail_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.detail_accent_list.config(yscrollcommand=detail_scroll.set)
+
+        # --- Accessories ---
+        frame_accessories = ttk.LabelFrame(right_col, text=self.t("Accessories"), padding=6)
+        frame_accessories.grid(row=2, column=0, sticky="nsew", pady=(0, 8))
+        accessory_list_frame = ttk.Frame(frame_accessories)
+        accessory_list_frame.pack(fill=tk.BOTH, expand=True)
+        self.clothing_accessory_list = tk.Listbox(
+            accessory_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=5,
+            exportselection=False,
+        )
+        for option in clg.get_accessory_options(self.ui_lang):
+            self.clothing_accessory_list.insert(tk.END, option)
+        self.clothing_accessory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        accessory_scroll = ttk.Scrollbar(accessory_list_frame, orient="vertical", command=self.clothing_accessory_list.yview)
+        accessory_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.clothing_accessory_list.config(yscrollcommand=accessory_scroll.set)
+
+        # --- Insignia ---
+        frame_insignia = ttk.LabelFrame(right_col, text=self.t("Insignia & Markings"), padding=6)
+        frame_insignia.grid(row=3, column=0, sticky="nsew", pady=(0, 8))
+        insignia_list_frame = ttk.Frame(frame_insignia)
+        insignia_list_frame.pack(fill=tk.BOTH, expand=True)
+        self.clothing_insignia_list = tk.Listbox(
+            insignia_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=4,
+            exportselection=False,
+        )
+        for option in clg.get_insignia_options(self.ui_lang):
+            self.clothing_insignia_list.insert(tk.END, option)
+        self.clothing_insignia_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        insignia_scroll = ttk.Scrollbar(insignia_list_frame, orient="vertical", command=self.clothing_insignia_list.yview)
+        insignia_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.clothing_insignia_list.config(yscrollcommand=insignia_scroll.set)
+
+        # --- Misc ---
+        frame_misc = ttk.LabelFrame(right_col, text=self.t("Misc"), padding=6)
+        frame_misc.grid(row=4, column=0, sticky="ew")
+        frame_misc.columnconfigure(0, weight=1)
+        ttk.Label(frame_misc, text=self.t("Custom notes (comma separated):")).grid(row=0, column=0, sticky="w")
+        self.clothing_custom_notes_var = tk.StringVar()
+        ttk.Entry(frame_misc, textvariable=self.clothing_custom_notes_var).grid(row=1, column=0, sticky="ew", pady=(4, 0))
+
+        # --- Outfit Swap Preview (Gemini) ---
+        frame_swap = ttk.LabelFrame(right_col, text=self.t("Outfit Swap (Preview)"), padding=6)
+        frame_swap.grid(row=5, column=0, sticky="ew", pady=(0, 8))
+        frame_swap.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_swap, text=self.t("Character Image:")).grid(row=0, column=0, sticky="w")
+        self.swap_character_path_var = tk.StringVar(value=self.t("No image selected"))
+        self.lbl_swap_character = ttk.Label(frame_swap, textvariable=self.swap_character_path_var, foreground="gray", wraplength=280)
+        self.lbl_swap_character.grid(row=0, column=1, sticky="w", padx=(5, 0))
+        ttk.Button(frame_swap, text=self.t("Select Character Image..."), command=self.select_swap_character_image).grid(
+            row=1, column=1, sticky="ew", padx=(5, 0), pady=(4, 0)
+        )
+
+        ttk.Label(frame_swap, text=self.t("Clothing Preset Image:")).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.swap_clothing_path_var = tk.StringVar(value=self.t("No image selected"))
+        self.lbl_swap_clothing = ttk.Label(frame_swap, textvariable=self.swap_clothing_path_var, foreground="gray", wraplength=280)
+        self.lbl_swap_clothing.grid(row=2, column=1, sticky="w", padx=(5, 0), pady=(8, 0))
+        ttk.Button(frame_swap, text=self.t("Select Clothing Image..."), command=self.select_swap_clothing_image).grid(
+            row=3, column=1, sticky="ew", padx=(5, 0), pady=(4, 0)
+        )
+
+        ttk.Label(frame_swap, text=self.t("Output Name:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        self.swap_output_name_var = tk.StringVar(value="swap_preview")
+        ttk.Entry(frame_swap, textvariable=self.swap_output_name_var).grid(row=4, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Button(frame_swap, text=self.t("Run Outfit Swap (Gemini)"), command=self.run_outfit_swap_threaded).grid(
+            row=5, column=0, columnspan=2, sticky="ew", pady=(8, 0)
+        )
+
+        # --- Extra Modifiers ---
+        action_bar = ttk.Frame(parent)
+        action_bar.pack(fill=tk.X, pady=(2, 0))
+        action_bar.columnconfigure(1, weight=1)
+        ttk.Label(action_bar, text=self.t("Extra modifiers (optional):")).grid(row=0, column=0, sticky="w")
+        self.clothing_extra_modifiers_var = tk.StringVar()
+        ttk.Entry(action_bar, textvariable=self.clothing_extra_modifiers_var).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        self._bind_clothing_auto_update()
+        self.schedule_clothing_prompt_update()
+
+    def update_clothing_faction_desc(self, *_):
+        desc = self.faction_desc_map.get(self.faction_var.get(), "")
+        if not desc:
+            desc = self.t("No faction description")
+        self.lbl_faction_desc.config(text=desc)
+        self.schedule_clothing_prompt_update()
+
+    def _select_image_path(self) -> str:
+        return filedialog.askopenfilename(
+            title=self.t("Select Image File(s)..."),
+            filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.webp;*.gif")],
+        )
+
+    def select_swap_character_image(self):
+        path = self._select_image_path()
+        if not path:
+            return
+        self.swap_character_path_var.set(path)
+        self.lbl_swap_character.config(foreground="black")
+
+    def select_swap_clothing_image(self):
+        path = self._select_image_path()
+        if not path:
+            return
+        self.swap_clothing_path_var.set(path)
+        self.lbl_swap_clothing.config(foreground="black")
+
+    def _load_image_blob(self, path: str):
+        with open(path, "rb") as fh:
+            image_bytes = fh.read()
+        mime_type = mimetypes.guess_type(path)[0] or "image/png"
+        return image_bytes, mime_type
+
+    def _build_outfit_swap_prompt(self) -> str:
+        guidance = [
+            "You are given two images.",
+            "First image: the character to keep (face, body proportions, pose, lighting).",
+            "Second image: the clothing preset to apply.",
+            "Replace only the outfit on the character with the clothing from the second image.",
+            "Keep identity, face, hair, skin, and pose unchanged.",
+            "Do NOT change the framing, camera angle, crop, or composition of Image 1.",
+            "The output must keep Image 1's exact framing and silhouette scale.",
+            "Adapt the clothing to the character, not the character to the clothing.",
+            "This is an outfit swap, NOT a head swap. Do not move or replace the head.",
+            "Match the retro 90s Japanese realistic sci-fi anime cel-shaded look.",
+            "Keep the background clean and simple.",
+        ]
+        extra = self.clothing_extra_modifiers_var.get().strip()
+        if extra:
+            guidance.append(f"Extra notes: {extra}.")
+        return "\n".join(guidance).strip()
+
+    def run_outfit_swap_threaded(self):
+        character_path = self.swap_character_path_var.get()
+        clothing_path = self.swap_clothing_path_var.get()
+        if (
+            self.t("No image selected") in (character_path, clothing_path)
+            or not os.path.exists(character_path)
+            or not os.path.exists(clothing_path)
+        ):
+            messagebox.showerror(self.t("Error"), self.t("Select character and clothing images first."))
+            return
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        if not api_key:
+            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            return
+        output_name = self.swap_output_name_var.get().strip() or "swap_preview"
+        prompt = self._build_outfit_swap_prompt()
+        log_lines = [
+            "# Outfit Swap Prompt",
+            f"Character: {character_path}",
+            f"Clothing: {clothing_path}",
+            f"Output: {output_name}",
+            "",
+            prompt,
+        ]
+        self.set_output("\n".join(log_lines))
+        self.set_ui_busy(True, self.t("Generating Image..."))
+        threading.Thread(
+            target=self._run_outfit_swap_task,
+            args=(prompt, character_path, clothing_path),
+            daemon=True,
+        ).start()
+
+    def _run_outfit_swap_task(self, prompt: str, character_path: str, clothing_path: str):
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
+        try:
+            character_blob = self._load_image_blob(character_path)
+            clothing_blob = self._load_image_blob(clothing_path)
+            image_bytes, mime_type = gs.generate_image_bytes(
+                prompt,
+                api_key=api_key,
+                model=model,
+                reference_images=[character_blob, clothing_blob],
+                text_last=True,
+            )
+            self.pending_images = []
+            self.pending_image_bytes = image_bytes
+            self.pending_image_mime = mime_type
+            self.pending_image_prefix = "clothing_swap"
+            self.root.after(0, self.show_preview_image)
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
+            self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
         
     def setup_settings_tab(self):
         parent = self.tab_settings
@@ -1865,6 +2274,104 @@ class PromptApp:
             include_mood=include_mood,
             include_extra_modifiers=include_extra_modifiers,
         )
+
+    def _bind_clothing_auto_update(self):
+        vars_to_watch = [
+            self.faction_var,
+            self.clothing_gender_var,
+            self.role_var,
+            self.view_mode_var,
+            self.clothing_aspect_ratio_var,
+            self.pose_var,
+            self.presentation_var,
+            self.outfit_category_var,
+            self.silhouette_var,
+            self.layering_var,
+            self.clothing_material_var,
+            self.palette_var,
+            self.wear_state_var,
+            self.clothing_custom_notes_var,
+            self.clothing_extra_modifiers_var,
+        ]
+        for var in vars_to_watch:
+            var.trace_add("write", self.schedule_clothing_prompt_update)
+
+        listboxes = [
+            self.detail_accent_list,
+            self.clothing_accessory_list,
+            self.clothing_insignia_list,
+        ]
+        for lb in listboxes:
+            lb.bind("<<ListboxSelect>>", self.schedule_clothing_prompt_update)
+
+    def schedule_clothing_prompt_update(self, *_):
+        if getattr(self, "_clothing_update_pending", False):
+            return
+        self._clothing_update_pending = True
+        self.root.after(50, self._run_clothing_prompt_update)
+
+    def _run_clothing_prompt_update(self):
+        self._clothing_update_pending = False
+        try:
+            self.generate_clothing_prompt()
+        except Exception:
+            pass
+
+    def generate_clothing_prompt(self):
+        prompt_inputs = self._collect_clothing_prompt_inputs()
+        prompt = self._build_clothing_prompt(
+            detail_accents=prompt_inputs["detail_accents"],
+            accessories=prompt_inputs["accessories"],
+            insignia=prompt_inputs["insignia"],
+            extra_notes=prompt_inputs["extra_notes"],
+        )
+        self.set_output(prompt)
+
+    def _collect_clothing_prompt_inputs(self):
+        detail_accents = [self.detail_accent_list.get(i) for i in self.detail_accent_list.curselection()]
+        accessories = [self.clothing_accessory_list.get(i) for i in self.clothing_accessory_list.curselection()]
+        insignia = [self.clothing_insignia_list.get(i) for i in self.clothing_insignia_list.curselection()]
+        extra_notes = self.clothing_custom_notes_var.get().strip()
+        if extra_notes:
+            detail_accents.extend([n.strip() for n in extra_notes.split(",") if n.strip()])
+        return {
+            "detail_accents": detail_accents,
+            "accessories": accessories,
+            "insignia": insignia,
+            "extra_notes": self.clothing_extra_modifiers_var.get().strip(),
+        }
+
+    def _build_clothing_prompt(
+        self,
+        detail_accents,
+        accessories,
+        insignia,
+        extra_notes,
+    ):
+        return clg.generate_clothing_preset_prompt(
+            faction=self.faction_var.get(),
+            gender=self.clothing_gender_var.get(),
+            role=self.role_var.get(),
+            outfit_category=self.outfit_category_var.get(),
+            silhouette=self.silhouette_var.get(),
+            layering=self.layering_var.get(),
+            material=self.clothing_material_var.get(),
+            palette=self.palette_var.get(),
+            wear_state=self.wear_state_var.get(),
+            presentation=self.presentation_var.get(),
+            pose=self.pose_var.get(),
+            view_mode=self.view_mode_var.get(),
+            aspect_ratio=self.clothing_aspect_ratio_var.get(),
+            detail_accents=detail_accents,
+            accessories=accessories,
+            insignia=insignia,
+            extra_notes=extra_notes,
+            include_style=True,
+            include_background=True,
+            include_mood=True,
+            swap_ready=True,
+            lang=self.ui_lang,
+        )
     
     def generate_image_threaded(self):
         prompt = self.output_text.get("1.0", tk.END).strip()
@@ -2020,6 +2527,7 @@ class PromptApp:
         self.pending_images = [{"bytes": b, "mime": m} for b, m in results]
         self.pending_image_bytes = None
         self.pending_image_mime = None
+        self.pending_image_prefix = self.get_current_module_prefix()
         self.active_preview_index = 0
         self.root.after(0, self.show_preview_images)
         self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
@@ -2089,6 +2597,9 @@ class PromptApp:
         nav_frame = ttk.Frame(dialog)
         nav_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
+        action_frame = ttk.Frame(dialog)
+        action_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
         def render():
             try:
                 item = self.pending_images[self.active_preview_index]
@@ -2116,25 +2627,75 @@ class PromptApp:
         ttk.Button(nav_frame, text=self.t("Next"), command=go_next).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 5))
         ttk.Button(nav_frame, text=self.t("Grid View"), command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
 
+        def save_selected():
+            if not self.pending_images:
+                return
+            item = self.pending_images[self.active_preview_index]
+            output_path = self._save_image_bytes_to_disk(item["bytes"], self.pending_image_prefix)
+            if output_path:
+                self.status_var.set(self.t("Image saved to {path}").format(path=output_path))
+                self._discard_active_pending_image(dialog)
+
+        def discard_selected():
+            if not self.pending_images:
+                return
+            self._discard_active_pending_image(dialog)
+
+        ttk.Button(action_frame, text=self.t("Save Selected"), command=save_selected).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5)
+        )
+        ttk.Button(action_frame, text=self.t("Discard Selected"), command=discard_selected).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0)
+        )
+
         render()
 
-    def save_preview_image(self):
-        if not self.pending_image_bytes:
+    def _discard_active_pending_image(self, dialog=None):
+        if not self.pending_images:
             return
+        if 0 <= self.active_preview_index < len(self.pending_images):
+            self.pending_images.pop(self.active_preview_index)
+        if not self.pending_images:
+            self.active_preview_index = 0
+            self.preview_grid.pack_forget()
+            self.preview_label.config(text=self.t("No preview image"), image="")
+            self.btn_save_image.config(state=tk.DISABLED)
+            self.btn_discard_image.config(state=tk.DISABLED)
+            self.btn_edit_image.config(state=tk.DISABLED)
+            if dialog:
+                dialog.destroy()
+            return
+        self.active_preview_index %= len(self.pending_images)
+        self._render_image_grid()
+        if dialog:
+            dialog.destroy()
+            self.open_image_viewer(self.active_preview_index)
+
+    def _save_image_bytes_to_disk(self, image_bytes: bytes, prefix: str):
+        if not image_bytes:
+            return None
         save_dir = self.save_dir_var.get().strip() if hasattr(self, "save_dir_var") else self.image_save_dir
         save_dir = save_dir or "outputs"
         os.makedirs(save_dir, exist_ok=True)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         ext = "png"
-        filename = f"{self.pending_image_prefix}_{timestamp}.{ext}"
+        filename = f"{prefix}_{timestamp}.{ext}"
         output_path = os.path.join(save_dir, filename)
         try:
             with open(output_path, "wb") as f:
-                f.write(self.pending_image_bytes)
-            self.status_var.set(self.t("Image saved to {path}").format(path=output_path))
-            self.discard_preview_image()
+                f.write(image_bytes)
+            return output_path
         except Exception as e:
             messagebox.showerror(self.t("Error"), str(e))
+            return None
+
+    def save_preview_image(self):
+        if not self.pending_image_bytes:
+            return
+        output_path = self._save_image_bytes_to_disk(self.pending_image_bytes, self.pending_image_prefix)
+        if output_path:
+            self.status_var.set(self.t("Image saved to {path}").format(path=output_path))
+            self.discard_preview_image()
 
     def discard_preview_image(self):
         self.pending_image_bytes = None
@@ -2157,6 +2718,8 @@ class PromptApp:
             return "items"
         if current == str(self.tab_characters):
             return "character"
+        if current == str(self.tab_clothing):
+            return "clothing"
         if current == str(self.tab_slicer):
             return "slicer"
         if current == str(self.tab_curation):

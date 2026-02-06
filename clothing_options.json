@@ -1,0 +1,149 @@
+{
+  "factions": [
+    ["Earth Orbital Defense Force", "地球轨道防卫军"],
+    ["Urban Public Safety Division", "城市公安机动科"],
+    ["Deep Space Resource Consortium", "深空资源联合体"],
+    ["Outer Ring Colonial Authority", "外环殖民管理局"],
+    ["Amagi Heavy Industries Security", "天城重工安保部"],
+    ["Blue Star Relief Medical Corps", "苍星医援组织"],
+    ["Academy Joint Research Unit", "学院联合科研团"],
+    ["Luminous Independent Network", "流光独立派"],
+    ["Independent Civilian", "无势力普通人"]
+  ],
+  "gender_options": [
+    ["Unspecified", "未指定"],
+    ["Male", "男装"],
+    ["Female", "女装"]
+  ],
+  "roles": [
+    ["pilot", "飞行员"],
+    ["mechanic", "机修工"],
+    ["systems engineer", "系统工程师"],
+    ["security officer", "安保人员"],
+    ["field medic", "现场医疗员"],
+    ["navigation officer", "导航官"],
+    ["comms operator", "通讯操作员"],
+    ["diplomatic liaison", "外交联络官"],
+    ["salvage crew", "打捞员"],
+    ["research specialist", "研究员"],
+    ["student", "学生"],
+    ["office worker", "职员"],
+    ["station clerk", "站务员"],
+    ["teacher", "教师"],
+    ["journalist", "记者"],
+    ["cafe staff", "咖啡店店员"],
+    ["logistics clerk", "物流文员"],
+    ["maintenance worker", "维护工"],
+    ["dock loader", "码头装卸工"]
+  ],
+  "outfit_categories": [
+    ["flight suit", "飞行服"],
+    ["tactical uniform", "战术制服"],
+    ["engineering coveralls", "工程连体服"],
+    ["EVA soft suit", "舱外软质作业服"],
+    ["command uniform", "指挥官制服"],
+    ["field research gear", "野外研究装备"],
+    ["medical response kit", "医疗救援装"],
+    ["cargo crew workwear", "货运工装"],
+    ["corporate security kit", "企业安保制服"],
+    ["civilian utility wear", "民用功能装"],
+    ["school uniform", "校服"],
+    ["office attire", "办公通勤装"],
+    ["commuter jacket", "通勤夹克"],
+    ["casual streetwear", "日常便装"]
+  ],
+  "silhouette_options": [
+    ["streamlined and fitted", "贴身流线"],
+    ["structured armored silhouette", "结构化护甲轮廓"],
+    ["oversized layered silhouette", "宽松分层轮廓"],
+    ["long coat silhouette", "长外套轮廓"],
+    ["short jacket silhouette", "短夹克轮廓"],
+    ["asymmetrical paneling", "不对称分割"],
+    ["utilitarian harness-heavy", "多束带功能型"]
+  ],
+  "layering_options": [
+    ["single-layer jumpsuit", "单层连体服"],
+    ["jacket over flight suit", "飞行服外搭夹克"],
+    ["armored vest over uniform", "制服外加护甲背心"],
+    ["coat with inner vest", "大衣内搭背心"],
+    ["modular outer shell", "模块化外壳层"],
+    ["protective apron layer", "防护围裙层"]
+  ],
+  "material_options": [
+    ["matte technical fabric", "哑光科技布"],
+    ["aramid weave", "芳纶编织"],
+    ["brushed composite plates", "拉丝复合板"],
+    ["rubberized seals", "橡胶密封"],
+    ["leather panels", "皮革拼接"],
+    ["carbon fiber inserts", "碳纤维嵌片"],
+    ["matte polymer shell", "哑光聚合物外壳"]
+  ],
+  "palette_options": [
+    ["navy and graphite", "海军蓝与石墨灰"],
+    ["charcoal and steel", "炭灰与钢色"],
+    ["white and cobalt", "白与钴蓝"],
+    ["olive and sand", "橄榄绿与沙色"],
+    ["burnt orange and gunmetal", "焦橙与枪灰"],
+    ["cream and brass", "米白与黄铜"],
+    ["black and neon teal", "黑与霓虹青"],
+    ["crimson and slate", "深红与板岩灰"]
+  ],
+  "detail_accents": [
+    ["rank patches", "军阶贴章"],
+    ["reflective strips", "反光条"],
+    ["utility pockets", "功能口袋"],
+    ["zip panel seams", "拉链拼接线"],
+    ["reinforced knees", "加强护膝"],
+    ["pressure seals", "压力密封圈"],
+    ["medical cross markings", "医疗十字标"],
+    ["ID tag strips", "身份标识条"],
+    ["magnetic buckles", "磁吸扣件"],
+    ["piping edge trim", "包边走线"]
+  ],
+  "accessories": [
+    ["utility belt", "工具腰带"],
+    ["tool pouch", "工具小包"],
+    ["gloves", "手套"],
+    ["reinforced boots", "加固靴"],
+    ["helmet tucked under arm", "夹持头盔"],
+    ["wrist console", "腕部终端"],
+    ["respirator mask", "呼吸面罩"],
+    ["radio earpiece", "无线耳机"]
+  ],
+  "insignia": [
+    ["chest insignia", "胸前徽记"],
+    ["shoulder patches", "肩章贴片"],
+    ["back emblem", "背部徽标"],
+    ["armband stripe", "臂章条纹"],
+    ["name tag", "姓名牌"]
+  ],
+  "wear_state_options": [
+    ["pristine and ceremonial", "整洁如新"],
+    ["service-worn", "常规磨损"],
+    ["battle-worn and scuffed", "战斗磨损"],
+    ["dusty field use", "野外尘污"],
+    ["oil-stained workwear", "油污工作服"]
+  ],
+  "view_mode_options": [
+    ["front/back/side + 3/4 sheet (2x2 grid)", "正/背/侧 + 3/4 视图（2x2 网格）"],
+    ["turnaround 3-view (front/back/side)", "三视图（正/背/侧）"],
+    ["front/back + detail inset (2x2 grid)", "正背面 + 细节小图（2x2 网格）"],
+    ["single full-body front", "单一正面全身"]
+  ],
+  "pose_options": [
+    ["neutral A-pose mannequin", "中性 A 字站姿人台"],
+    ["neutral T-pose mannequin", "中性 T 字站姿人台"],
+    ["relaxed neutral stance", "放松中性站姿"]
+  ],
+  "presentation_options": [
+    ["standardized mannequin (faceless, no hair)", "标准人台（无脸无发）"],
+    ["faceless human body", "无脸人体"],
+    ["flat lay garment layout", "平铺展示"]
+  ],
+  "aspect_ratio_options": [
+    ["Unspecified", "未指定"],
+    ["1:1 square", "1:1 方形"],
+    ["3:4 portrait", "3:4 竖幅"],
+    ["2:3 portrait", "2:3 竖幅"]
+  ]
+}
