@@ -918,6 +918,10 @@ def generate_character_prompt(
     lang: str = "en",
     custom_profession: str = "",
     extra_modifiers: str = "",
+    include_style: bool = True,
+    include_background: bool = True,
+    include_mood: bool = True,
+    include_extra_modifiers: bool = True,
 ) -> str:
     gender_value = _label_to_value(gender, _make_option_map(GENDER_OPTION_PAIRS, lang))
     age_value = _age_to_descriptor(age)
@@ -987,18 +991,24 @@ def generate_character_prompt(
     if aspect_ratio_value and aspect_ratio_value != "Unspecified":
         ratio_line = f"aspect ratio {aspect_ratio_value.split()[0]}."
 
-    extra_line = extra_modifiers.strip()
+    extra_line = extra_modifiers.strip() if include_extra_modifiers else ""
 
-    style_cfg = _load_style_config()
-    style_line = style_cfg["style"]
-    if artists:
-        artist_text = ", ".join([a.strip() for a in artists if a.strip()])
-        if artist_text:
-            style_line = f"{style_line} style of {artist_text}."
-    parts = [style_line, "", subject_line]
+    parts = [subject_line]
     if ratio_line:
         parts.extend(["", ratio_line])
-    parts.extend(["", style_cfg["background"], "", style_cfg["mood"]])
+    style_cfg = _load_style_config()
+    if include_style:
+        style_cfg = _load_style_config()
+        style_line = style_cfg["style"]
+        if artists:
+            artist_text = ", ".join([a.strip() for a in artists if a.strip()])
+            if artist_text:
+                style_line = f"{style_line} style of {artist_text}."
+        parts = [style_line, ""] + parts
+    if include_background:
+        parts.extend(["", style_cfg["background"]])
+    if include_mood:
+        parts.extend(["", style_cfg["mood"]])
     if extra_line:
         parts.extend(["", extra_line])
 

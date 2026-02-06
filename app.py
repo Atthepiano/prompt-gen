@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, colorchooser, filedialog
 from PIL import Image, ImageTk
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import prompt_generator as pg
 import item_generator as ig
 import character_generator as cg
@@ -9,6 +10,7 @@ import slicer_tool as st
 import curation_tool as ct
 import json
 import os
+import mimetypes
 import threading
 import io
 import time
@@ -30,6 +32,14 @@ UI_TEXTS_ZH = {
     "No preview image": "暂无预览图片",
     "Save Image": "保存图片",
     "Discard Image": "丢弃图片",
+    "Edit Image": "改图",
+    "Concurrent Images:": "并发生成：",
+    "Grid View": "网格视图",
+    "Previous": "上一张",
+    "Next": "下一张",
+    "Edit Prompt:": "修改提示：",
+    "Apply Edit": "执行改图",
+    "Cancel": "取消",
     "Ready": "就绪",
     "Component Category:": "组件类别：",
     "Subcategory:": "子类别：",
@@ -121,6 +131,15 @@ UI_TEXTS_ZH = {
     "Accessories": "配饰",
     "Misc Details": "杂项细节",
     "Artist Styles": "艺术家风格",
+    "Style Reference (Optional)": "画风参考（可选）",
+    "Style Reference Only Mode": "仅参考图风格模式",
+    "Use style reference only (remove style text from prompt)": "仅参考图风格（从提示词移除画风相关内容）",
+    "Select Style Image...": "选择画风参考图...",
+    "Clear Style Image": "清除画风参考图",
+    "No style image selected": "未选择画风参考图",
+    "Style image selected: {name}": "已选择画风参考图：{name}",
+    "Style images selected: {count}": "已选择画风参考图：{count} 张",
+    "Failed to read style image.": "读取画风参考图失败。",
     "Custom misc (comma separated):": "自定义杂项（逗号分隔）：",
     "Custom gear/tech (comma separated):": "自定义配饰/科技（逗号分隔）：",
     "Extra modifiers (optional):": "额外修饰（可选）：",
@@ -158,6 +177,8 @@ UI_TEXTS_ZH = {
     "Generating Image...": "正在生成图片...",
     "Image saved: {path}": "图片已保存：{path}",
     "Image ready. Use Save/Discard.": "图片已生成，请选择保存或丢弃。",
+    "Editing Image...": "正在改图...",
+    "No image to edit.": "没有可改的图片。",
     "Image discarded.": "图片已丢弃。",
     "Image saved to {path}": "图片已保存到：{path}",
     "Gemini API key is missing.": "缺少 Gemini API Key。",
@@ -207,6 +228,11 @@ class PromptApp:
         # Slicer variables
         self.selected_image_path = None
         self.preview_image = None # Keep reference
+
+        # Style reference image (Character tab)
+        self.style_ref_paths = []
+        self.style_ref_blobs = []
+        self.style_ref_only_mode = tk.BooleanVar(value=False)
         
         # Slicer Smart Naming
         self.slicer_csv_path = ig.DEFAULT_CSV_PATH # Default to item_test.csv
@@ -291,12 +317,27 @@ class PromptApp:
         self.preview_label = ttk.Label(right_frame, text=self.t("No preview image"), background="#eeeeee", anchor="center")
         self.preview_label.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
 
+        self.preview_grid = ttk.Frame(right_frame)
+        self.preview_grid.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
+        self.preview_grid.pack_forget()
+
         preview_btn_frame = ttk.Frame(right_frame)
         preview_btn_frame.pack(fill=tk.X, pady=(0, 10))
         self.btn_save_image = ttk.Button(preview_btn_frame, text=self.t("Save Image"), command=self.save_preview_image, state=tk.DISABLED)
         self.btn_save_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
         self.btn_discard_image = ttk.Button(preview_btn_frame, text=self.t("Discard Image"), command=self.discard_preview_image, state=tk.DISABLED)
         self.btn_discard_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
+        self.btn_edit_image = ttk.Button(preview_btn_frame, text=self.t("Edit Image"), command=self.open_edit_dialog, state=tk.DISABLED)
+        self.btn_edit_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
+
+        # Concurrency controls
+        concurrency_frame = ttk.Frame(right_frame)
+        concurrency_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(concurrency_frame, text=self.t("Concurrent Images:")).pack(side=tk.LEFT)
+        self.concurrent_var = tk.StringVar(value="1")
+        self.concurrent_combo = ttk.Combobox(concurrency_frame, textvariable=self.concurrent_var, state="readonly", width=5)
+        self.concurrent_combo["values"] = ["1", "2", "4", "6", "8"]
+        self.concurrent_combo.pack(side=tk.LEFT, padx=(6, 0))
 
         # Copy Button
         self.copy_btn = ttk.Button(right_frame, text=self.t("Copy to Clipboard"), command=self.copy_to_clipboard)
@@ -315,6 +356,9 @@ class PromptApp:
         self.pending_image_mime = None
         self.pending_image_prefix = "gemini"
         self.preview_photo = None
+        self.pending_images = []
+        self.preview_thumbnails = []
+        self.active_preview_index = 0
 
     def t(self, text: str) -> str:
         if self.ui_lang == "zh":
@@ -698,7 +742,12 @@ class PromptApp:
         ttk.Label(face_list_frame, text=self.t("Face Features")).grid(row=0, column=0, sticky="w")
         face_list_container = ttk.Frame(face_list_frame)
         face_list_container.grid(row=1, column=0, sticky="nsew")
-        self.face_feature_list = tk.Listbox(face_list_container, selectmode=tk.MULTIPLE, height=6)
+        self.face_feature_list = tk.Listbox(
+            face_list_container,
+            selectmode=tk.MULTIPLE,
+            height=6,
+            exportselection=False,
+        )
         for option in cg.get_appearance_options(self.ui_lang):
             self.face_feature_list.insert(tk.END, option)
         self.face_feature_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -713,7 +762,12 @@ class PromptApp:
         frame_artists.columnconfigure(0, weight=1)
         artist_list_frame = ttk.Frame(frame_artists)
         artist_list_frame.grid(row=0, column=0, sticky="nsew")
-        self.artist_list = tk.Listbox(artist_list_frame, selectmode=tk.MULTIPLE, height=5)
+        self.artist_list = tk.Listbox(
+            artist_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=5,
+            exportselection=False,
+        )
         self.artist_label_map = cg.get_artist_label_map(self.ui_lang)
         for option in cg.get_artist_options(self.ui_lang):
             self.artist_list.insert(tk.END, option)
@@ -723,6 +777,22 @@ class PromptApp:
         self.artist_list.config(yscrollcommand=artist_scroll.set)
         for i in range(self.artist_list.size()):
             self.artist_list.selection_set(i)
+
+        # --- Style Reference ---
+        frame_style_ref = ttk.LabelFrame(left_col, text=self.t("Style Reference (Optional)"), padding=6)
+        frame_style_ref.grid(row=4, column=0, sticky="nsew", pady=(0, 8))
+        ttk.Button(frame_style_ref, text=self.t("Select Style Image..."), command=self.select_style_reference_image).pack(fill=tk.X)
+        self.lbl_style_ref = ttk.Label(frame_style_ref, text=self.t("No style image selected"), foreground="gray", wraplength=320)
+        self.lbl_style_ref.pack(anchor="w", pady=(4, 6))
+        ttk.Button(frame_style_ref, text=self.t("Clear Style Image"), command=self.clear_style_reference_image).pack(fill=tk.X)
+        self.chk_style_ref_only = ttk.Checkbutton(
+            frame_style_ref,
+            text=self.t("Use style reference only (remove style text from prompt)"),
+            variable=self.style_ref_only_mode,
+            command=self.schedule_character_prompt_update,
+        )
+        self.chk_style_ref_only.pack(anchor="w", pady=(6, 0))
+        self.chk_style_ref_only.config(state=tk.DISABLED)
 
         # --- Outfit ---
         frame_outfit = ttk.LabelFrame(right_col, text=self.t("Outfit"), padding=6)
@@ -763,7 +833,12 @@ class PromptApp:
         ttk.Label(apparel_frame, text=self.t("Apparel Details")).grid(row=0, column=0, sticky="w")
         apparel_list_frame = ttk.Frame(apparel_frame)
         apparel_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.apparel_list = tk.Listbox(apparel_list_frame, selectmode=tk.MULTIPLE, height=6)
+        self.apparel_list = tk.Listbox(
+            apparel_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=6,
+            exportselection=False,
+        )
         for option in cg.get_apparel_detail_options(self.ui_lang):
             self.apparel_list.insert(tk.END, option)
         self.apparel_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -777,7 +852,12 @@ class PromptApp:
         ttk.Label(accessory_frame, text=self.t("Accessories")).grid(row=0, column=0, sticky="w")
         accessory_list_frame = ttk.Frame(accessory_frame)
         accessory_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.accessory_list = tk.Listbox(accessory_list_frame, selectmode=tk.MULTIPLE, height=6)
+        self.accessory_list = tk.Listbox(
+            accessory_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=6,
+            exportselection=False,
+        )
         for option in cg.get_accessory_options(self.ui_lang):
             self.accessory_list.insert(tk.END, option)
         self.accessory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -794,7 +874,12 @@ class PromptApp:
         ttk.Label(frame_misc, text=self.t("Misc Details")).grid(row=0, column=0, sticky="w")
         misc_list_frame = ttk.Frame(frame_misc)
         misc_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.misc_list = tk.Listbox(misc_list_frame, selectmode=tk.MULTIPLE, height=6)
+        self.misc_list = tk.Listbox(
+            misc_list_frame,
+            selectmode=tk.MULTIPLE,
+            height=6,
+            exportselection=False,
+        )
         for option in cg.get_misc_options(self.ui_lang):
             self.misc_list.insert(tk.END, option)
         self.misc_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1209,6 +1294,43 @@ class PromptApp:
             
             if 0 <= idx < len(variants):
                 self.select_curation_item(filename, variants[idx])
+
+    def select_style_reference_image(self):
+        filepaths = filedialog.askopenfilenames(
+            title=self.t("Select Style Image..."),
+            filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")],
+        )
+        if not filepaths:
+            return
+        paths = list(filepaths)
+        blobs = []
+        try:
+            for filepath in paths:
+                with open(filepath, "rb") as f:
+                    image_bytes = f.read()
+                mime_type = mimetypes.guess_type(filepath)[0] or "image/png"
+                blobs.append((image_bytes, mime_type))
+        except Exception:
+            messagebox.showerror(self.t("Error"), self.t("Failed to read style image."))
+            return
+        self.style_ref_paths = paths
+        self.style_ref_blobs = blobs
+        if len(paths) == 1:
+            display_name = os.path.basename(paths[0])
+            label_text = self.t("Style image selected: {name}").format(name=display_name)
+        else:
+            label_text = self.t("Style images selected: {count}").format(count=len(paths))
+        self.lbl_style_ref.config(text=label_text, foreground="black")
+        self.chk_style_ref_only.config(state=tk.NORMAL)
+        self.schedule_character_prompt_update()
+
+    def clear_style_reference_image(self):
+        self.style_ref_paths = []
+        self.style_ref_blobs = []
+        self.lbl_style_ref.config(text=self.t("No style image selected"), foreground="gray")
+        self.style_ref_only_mode.set(False)
+        self.chk_style_ref_only.config(state=tk.DISABLED)
+        self.schedule_character_prompt_update()
                 
     def select_images_for_slicer(self):
         filepaths = filedialog.askopenfilenames(title=self.t("Select Sprite Sheets"), filetypes=[("Images", "*.png *.jpg *.jpeg *.webp")])
@@ -1306,6 +1428,10 @@ class PromptApp:
         
         self.gen_btn.config(state=state)
         self.gen_image_btn.config(state=state)
+        if busy:
+            self.btn_edit_image.config(state=tk.DISABLED)
+        elif self.pending_image_bytes:
+            self.btn_edit_image.config(state=tk.NORMAL)
 
     def generate_item_prompt_threaded(self):
         self.set_ui_busy(True, self.t("Generating Prompt and Translating... (This may take a moment)"))
@@ -1650,6 +1776,29 @@ class PromptApp:
             pass
 
     def generate_character_prompt(self):
+        prompt_inputs = self._collect_character_prompt_inputs()
+        include_style = True
+        include_background = True
+        include_mood = True
+        include_extra_modifiers = True
+        if self.style_ref_blobs and self.style_ref_only_mode.get():
+            include_style = False
+            include_mood = False
+            include_extra_modifiers = False
+        prompt = self._build_character_prompt(
+            face_features=prompt_inputs["face_features"],
+            apparel_details=prompt_inputs["apparel_details"],
+            accessories=prompt_inputs["accessories"],
+            misc_details=prompt_inputs["misc_details"],
+            artists=prompt_inputs["artists"],
+            include_style=include_style,
+            include_background=include_background,
+            include_mood=include_mood,
+            include_extra_modifiers=include_extra_modifiers,
+        )
+        self.set_output(prompt)
+
+    def _collect_character_prompt_inputs(self):
         face_features = [self.face_feature_list.get(i) for i in self.face_feature_list.curselection()]
         apparel_details = [self.apparel_list.get(i) for i in self.apparel_list.curselection()]
         accessories = [self.accessory_list.get(i) for i in self.accessory_list.curselection()]
@@ -1658,8 +1807,27 @@ class PromptApp:
         custom_misc = self.custom_misc_var.get().strip()
         if custom_misc:
             misc_details.extend([f.strip() for f in custom_misc.split(",") if f.strip()])
-        
-        prompt = cg.generate_character_prompt(
+        return {
+            "face_features": face_features,
+            "apparel_details": apparel_details,
+            "accessories": accessories,
+            "misc_details": misc_details,
+            "artists": artists,
+        }
+
+    def _build_character_prompt(
+        self,
+        face_features,
+        apparel_details,
+        accessories,
+        misc_details,
+        artists,
+        include_style: bool,
+        include_background: bool = True,
+        include_mood: bool = True,
+        include_extra_modifiers: bool = True,
+    ):
+        return cg.generate_character_prompt(
             gender=self.gender_var.get(),
             profession=self.profession_var.get(),
             age=self.age_var.get(),
@@ -1692,9 +1860,11 @@ class PromptApp:
             lang=self.ui_lang,
             custom_profession=self.custom_profession_var.get(),
             extra_modifiers=self.extra_modifiers_var.get(),
+            include_style=include_style,
+            include_background=include_background,
+            include_mood=include_mood,
+            include_extra_modifiers=include_extra_modifiers,
         )
-        
-        self.set_output(prompt)
     
     def generate_image_threaded(self):
         prompt = self.output_text.get("1.0", tk.END).strip()
@@ -1706,16 +1876,77 @@ class PromptApp:
         if not api_key:
             messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
             return
-        
+
+        reference_images = self._get_style_reference_images()
+        if (
+            reference_images
+            and self.notebook.select() == str(self.tab_characters)
+            and self.style_ref_only_mode.get()
+        ):
+            prompt_inputs = self._collect_character_prompt_inputs()
+            prompt = self._build_character_prompt(
+                face_features=prompt_inputs["face_features"],
+                apparel_details=prompt_inputs["apparel_details"],
+                accessories=prompt_inputs["accessories"],
+                misc_details=prompt_inputs["misc_details"],
+                artists=prompt_inputs["artists"],
+                include_style=False,
+                include_background=True,
+                include_mood=False,
+                include_extra_modifiers=False,
+            ).strip()
+        try:
+            count = int(self.concurrent_var.get() or "1")
+        except ValueError:
+            count = 1
+        count = max(1, min(8, count))
         self.set_ui_busy(True, self.t("Generating Image..."))
-        threading.Thread(target=self._generate_image_task, args=(prompt,), daemon=True).start()
+        if count == 1:
+            threading.Thread(target=self._generate_image_task, args=(prompt, reference_images), daemon=True).start()
+        else:
+            threading.Thread(target=self._generate_images_task, args=(prompt, reference_images, count), daemon=True).start()
+
+    def open_edit_dialog(self):
+        if not self.pending_image_bytes:
+            messagebox.showerror(self.t("Error"), self.t("No image to edit."))
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title(self.t("Edit Image"))
+        dialog.geometry("520x360")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        ttk.Label(dialog, text=self.t("Edit Prompt:"), font=("Arial", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
+        prompt_box = tk.Text(dialog, height=10, wrap=tk.WORD)
+        prompt_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        btn_row = ttk.Frame(dialog)
+        btn_row.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        def submit():
+            edit_prompt = prompt_box.get("1.0", tk.END).strip()
+            if not edit_prompt:
+                messagebox.showerror(self.t("Error"), self.t("No prompt content to send."))
+                return
+            dialog.destroy()
+            self.edit_image_threaded(edit_prompt)
+
+        ttk.Button(btn_row, text=self.t("Apply Edit"), command=submit).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
+        ttk.Button(btn_row, text=self.t("Cancel"), command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
     
-    def _generate_image_task(self, prompt: str):
+    def _generate_image_task(self, prompt: str, reference_images=None):
         api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
         model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
         
         try:
-            image_bytes, mime_type = gs.generate_image_bytes(prompt, api_key=api_key, model=model)
+            image_bytes, mime_type = gs.generate_image_bytes(
+                prompt,
+                api_key=api_key,
+                model=model,
+                reference_images=reference_images,
+            )
+            self.pending_images = []
             self.pending_image_bytes = image_bytes
             self.pending_image_mime = mime_type
             self.pending_image_prefix = self.get_current_module_prefix()
@@ -1726,6 +1957,74 @@ class PromptApp:
             self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
 
+    def _get_style_reference_images(self):
+        if self.notebook.select() != str(self.tab_characters):
+            return None
+        if not self.style_ref_blobs:
+            return None
+        return list(self.style_ref_blobs)
+
+    def edit_image_threaded(self, edit_prompt: str):
+        if not self.pending_image_bytes:
+            messagebox.showerror(self.t("Error"), self.t("No image to edit."))
+            return
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        if not api_key:
+            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            return
+        self.set_ui_busy(True, self.t("Editing Image..."))
+        threading.Thread(target=self._edit_image_task, args=(edit_prompt,), daemon=True).start()
+
+    def _edit_image_task(self, edit_prompt: str):
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
+        image_bytes = self.pending_image_bytes
+        image_mime = self.pending_image_mime
+
+        try:
+            edited_bytes, mime_type = gs.edit_image_bytes(
+                edit_prompt,
+                image_bytes=image_bytes,
+                image_mime=image_mime,
+                api_key=api_key,
+                model=model,
+            )
+            self.pending_image_bytes = edited_bytes
+            self.pending_image_mime = mime_type
+            self.pending_image_prefix = f"{self.get_current_module_prefix()}_edit"
+            self.root.after(0, self.show_preview_image)
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
+            self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
+
+    def _generate_images_task(self, prompt: str, reference_images, count: int):
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
+
+        def worker():
+            return gs.generate_image_bytes(prompt, api_key=api_key, model=model, reference_images=reference_images)
+
+        results = []
+        try:
+            with ThreadPoolExecutor(max_workers=count) as executor:
+                futures = [executor.submit(worker) for _ in range(count)]
+                for future in as_completed(futures):
+                    results.append(future.result())
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
+            return
+
+        self.pending_images = [{"bytes": b, "mime": m} for b, m in results]
+        self.pending_image_bytes = None
+        self.pending_image_mime = None
+        self.active_preview_index = 0
+        self.root.after(0, self.show_preview_images)
+        self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
+        self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
+
     def show_preview_image(self):
         if not self.pending_image_bytes:
             return
@@ -1734,11 +2033,90 @@ class PromptApp:
             img.thumbnail((420, 420))
             self.preview_photo = ImageTk.PhotoImage(img)
             self.preview_label.config(image=self.preview_photo, text="")
+            self.preview_label.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
+            self.preview_grid.pack_forget()
             self.btn_save_image.config(state=tk.NORMAL)
             self.btn_discard_image.config(state=tk.NORMAL)
+            self.btn_edit_image.config(state=tk.NORMAL)
         except Exception:
             self.preview_label.config(text=self.t("Error loading image"), image="")
             self.preview_photo = None
+
+    def show_preview_images(self):
+        if not self.pending_images:
+            return
+        self.preview_label.pack_forget()
+        self.preview_grid.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
+        self._render_image_grid()
+        self.btn_save_image.config(state=tk.DISABLED)
+        self.btn_discard_image.config(state=tk.DISABLED)
+        self.btn_edit_image.config(state=tk.DISABLED)
+
+    def _render_image_grid(self):
+        for child in self.preview_grid.winfo_children():
+            child.destroy()
+        self.preview_thumbnails = []
+        columns = 4
+        for idx, item in enumerate(self.pending_images):
+            try:
+                img = Image.open(io.BytesIO(item["bytes"]))
+                img.thumbnail((140, 140))
+                thumb = ImageTk.PhotoImage(img)
+                self.preview_thumbnails.append(thumb)
+                btn = tk.Button(self.preview_grid, image=thumb, command=lambda i=idx: self.open_image_viewer(i))
+                row = idx // columns
+                col = idx % columns
+                btn.grid(row=row, column=col, padx=6, pady=6)
+            except Exception:
+                lbl = ttk.Label(self.preview_grid, text=self.t("Error loading image"))
+                row = idx // columns
+                col = idx % columns
+                lbl.grid(row=row, column=col, padx=6, pady=6)
+
+    def open_image_viewer(self, index: int):
+        if not self.pending_images:
+            return
+        self.active_preview_index = index
+        dialog = tk.Toplevel(self.root)
+        dialog.title(self.t("Image Preview"))
+        dialog.geometry("720x720")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        img_label = ttk.Label(dialog, anchor="center")
+        img_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        nav_frame = ttk.Frame(dialog)
+        nav_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        def render():
+            try:
+                item = self.pending_images[self.active_preview_index]
+                img = Image.open(io.BytesIO(item["bytes"]))
+                img.thumbnail((680, 640))
+                photo = ImageTk.PhotoImage(img)
+                img_label.image = photo
+                img_label.config(image=photo, text="")
+            except Exception:
+                img_label.config(text=self.t("Error loading image"), image="")
+
+        def go_prev():
+            if not self.pending_images:
+                return
+            self.active_preview_index = (self.active_preview_index - 1) % len(self.pending_images)
+            render()
+
+        def go_next():
+            if not self.pending_images:
+                return
+            self.active_preview_index = (self.active_preview_index + 1) % len(self.pending_images)
+            render()
+
+        ttk.Button(nav_frame, text=self.t("Previous"), command=go_prev).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
+        ttk.Button(nav_frame, text=self.t("Next"), command=go_next).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 5))
+        ttk.Button(nav_frame, text=self.t("Grid View"), command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
+
+        render()
 
     def save_preview_image(self):
         if not self.pending_image_bytes:
@@ -1761,10 +2139,14 @@ class PromptApp:
     def discard_preview_image(self):
         self.pending_image_bytes = None
         self.pending_image_mime = None
+        self.pending_images = []
         self.preview_photo = None
         self.preview_label.config(text=self.t("No preview image"), image="")
+        self.preview_label.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
+        self.preview_grid.pack_forget()
         self.btn_save_image.config(state=tk.DISABLED)
         self.btn_discard_image.config(state=tk.DISABLED)
+        self.btn_edit_image.config(state=tk.DISABLED)
         self.status_var.set(self.t("Image discarded."))
 
     def get_current_module_prefix(self):
