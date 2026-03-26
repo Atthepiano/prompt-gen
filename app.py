@@ -15,8 +15,10 @@ import mimetypes
 import threading
 import io
 import time
+from typing import List
 
 APP_CONFIG_PATH = "config.json"
+HAIR_PREVIEW_CONFIG_PATH = "hair_previews.json"
 
 UI_TEXTS_ZH = {
     "Spaceship Prompt Generator": "飞船提示词生成器",
@@ -35,6 +37,9 @@ UI_TEXTS_ZH = {
     "Save Image": "保存图片",
     "Discard Image": "丢弃图片",
     "Edit Image": "改图",
+    "Undo Edit": "撤销改图",
+    "Reverted to previous version. {n} more undo(s) available.": "已回退到上一版本。还可撤销 {n} 次。",
+    "Reverted to original image.": "已恢复为原始图片。",
     "Concurrent Images:": "并发生成：",
     "Grid View": "网格视图",
     "Previous": "上一张",
@@ -93,6 +98,7 @@ UI_TEXTS_ZH = {
     "Build a modular clothing preset prompt for retro sci-fi outfit sheets.": "构建复古科幻服装预设图的模块化提示词。",
     "Faction & Role": "势力与角色",
     "Gender:": "男/女装：",
+    "Outfit Gender:": "服装性别：",
     "Faction:": "势力：",
     "Role Archetype:": "角色类型：",
     "No faction description": "暂无势力描述",
@@ -103,6 +109,7 @@ UI_TEXTS_ZH = {
     "Swap-ready mannequin spec (future workflow)": "换装兼容人台规范（后续流程）",
     "Outfit Build": "服装构成",
     "Outfit Category:": "服装类别：",
+    "Show all outfit categories": "显示全部服装类别（忽略角色限制）",
     "Silhouette:": "轮廓：",
     "Layering:": "层次结构：",
     "Material:": "材质：",
@@ -142,6 +149,12 @@ UI_TEXTS_ZH = {
     "Clear Hair Colors": "清空发色",
     "Bangs Presence:": "刘海：",
     "Bangs Style:": "刘海类型：",
+    "Hair Style Preview:": "发型预览：",
+    "Set Preview Image": "设置预览图",
+    "Clear Preview": "清除预览",
+    "Only show hair styles for current gender": "仅显示当前性别发型",
+    "Hair Preview Settings": "发型预览设置",
+    "Select Hair Style:": "选择发型：",
     "Face Shape:": "脸型：",
     "Eye Size:": "眼睛大小：",
     "Nose Size:": "鼻型/大小：",
@@ -268,6 +281,11 @@ class PromptApp:
         self.style_ref_paths = []
         self.style_ref_blobs = []
         self.style_ref_only_mode = tk.BooleanVar(value=False)
+
+        # Hair/Bangs preview config
+        self.hair_preview_config = self.load_hair_preview_config()
+        self.hair_style_previews = dict(self.hair_preview_config.get("hair_style", {}))
+        self.hair_style_preview_image = None
         
         # Slicer Smart Naming
         self.slicer_csv_path = ig.DEFAULT_CSV_PATH # Default to item_test.csv
@@ -370,7 +388,9 @@ class PromptApp:
         self.btn_discard_image = ttk.Button(preview_btn_frame, text=self.t("Discard Image"), command=self.discard_preview_image, state=tk.DISABLED)
         self.btn_discard_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
         self.btn_edit_image = ttk.Button(preview_btn_frame, text=self.t("Edit Image"), command=self.open_edit_dialog, state=tk.DISABLED)
-        self.btn_edit_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
+        self.btn_edit_image.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 5))
+        self.btn_undo_edit = ttk.Button(preview_btn_frame, text=self.t("Undo Edit"), command=self.undo_edit_image, state=tk.DISABLED)
+        self.btn_undo_edit.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 0))
 
         # Concurrency controls
         concurrency_frame = ttk.Frame(right_frame)
@@ -401,6 +421,7 @@ class PromptApp:
         self.pending_images = []
         self.preview_thumbnails = []
         self.active_preview_index = 0
+        self.edit_undo_stack = []
 
     def t(self, text: str) -> str:
         if self.ui_lang == "zh":
@@ -420,6 +441,30 @@ class PromptApp:
         try:
             with open(APP_CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception:
+            return False
+
+    def load_hair_preview_config(self) -> dict:
+        if os.path.exists(HAIR_PREVIEW_CONFIG_PATH):
+            try:
+                with open(HAIR_PREVIEW_CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    if "hair_style" not in data:
+                        data["hair_style"] = {}
+                    return data
+            except Exception:
+                return {"hair_style": {}}
+        return {"hair_style": {}}
+
+    def save_hair_preview_config(self) -> bool:
+        try:
+            payload = {
+                "hair_style": self.hair_style_previews,
+            }
+            with open(HAIR_PREVIEW_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
             return True
         except Exception:
             return False
@@ -594,33 +639,21 @@ class PromptApp:
         self.age_value_label.grid(row=0, column=1, sticky="e", padx=(6, 0))
         self._update_age_label()
 
-        ttk.Label(frame_base, text=self.t("Profession:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        profession_options = cg.get_profession_options(self.ui_lang)
-        self.profession_var = tk.StringVar(value=profession_options[0] if profession_options else "")
-        self.profession_combo = ttk.Combobox(frame_base, textvariable=self.profession_var, state="readonly")
-        self.profession_combo["values"] = profession_options
-        self.profession_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
-        self.profession_combo.bind("<<ComboboxSelected>>", self.update_outfit_options)
-
-        ttk.Label(frame_base, text=self.t("Custom Profession:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
-        self.custom_profession_var = tk.StringVar()
-        ttk.Entry(frame_base, textvariable=self.custom_profession_var).grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
-
-        ttk.Label(frame_base, text=self.t("Body Type:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Body Type:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
         body_type_options = cg.get_body_type_options(self.ui_lang)
         self.body_type_var = tk.StringVar(value=body_type_options[0] if body_type_options else "")
         self.body_type_combo = ttk.Combobox(frame_base, textvariable=self.body_type_var, state="readonly")
         self.body_type_combo["values"] = body_type_options
-        self.body_type_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        self.body_type_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        ttk.Label(frame_base, text=self.t("Skin Tone:")).grid(row=2, column=2, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Skin Tone:")).grid(row=1, column=2, sticky="w", pady=(6, 0))
         skin_tone_options = cg.get_skin_tone_options(self.ui_lang)
         self.skin_tone_var = tk.StringVar(value=skin_tone_options[0] if skin_tone_options else "")
         self.skin_tone_combo = ttk.Combobox(frame_base, textvariable=self.skin_tone_var, state="readonly")
         self.skin_tone_combo["values"] = skin_tone_options
-        self.skin_tone_combo.grid(row=2, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.skin_tone_combo.grid(row=1, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_base, text=self.t("Framing:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Framing:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
         framing_options = cg.get_framing_options(self.ui_lang)
         default_framing = ""
         if self.ui_lang == "zh":
@@ -630,29 +663,36 @@ class PromptApp:
         self.framing_var = tk.StringVar(value=default_framing or (framing_options[0] if framing_options else ""))
         self.framing_combo = ttk.Combobox(frame_base, textvariable=self.framing_var, state="readonly")
         self.framing_combo["values"] = framing_options
-        self.framing_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        self.framing_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        ttk.Label(frame_base, text=self.t("Aspect Ratio:")).grid(row=3, column=2, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Aspect Ratio:")).grid(row=2, column=2, sticky="w", pady=(6, 0))
         aspect_ratio_options = cg.get_aspect_ratio_options(self.ui_lang)
         default_ratio = next((r for r in aspect_ratio_options if "1:1" in r), "")
         self.aspect_ratio_var = tk.StringVar(value=default_ratio or (aspect_ratio_options[0] if aspect_ratio_options else ""))
         self.aspect_ratio_combo = ttk.Combobox(frame_base, textvariable=self.aspect_ratio_var, state="readonly")
         self.aspect_ratio_combo["values"] = aspect_ratio_options
-        self.aspect_ratio_combo.grid(row=3, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.aspect_ratio_combo.grid(row=2, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_base, text=self.t("Expression:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Expression:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
         expression_options = cg.get_expression_options(self.ui_lang)
         self.expression_var = tk.StringVar(value=expression_options[0] if expression_options else "")
         self.expression_combo = ttk.Combobox(frame_base, textvariable=self.expression_var, state="readonly")
         self.expression_combo["values"] = expression_options
-        self.expression_combo.grid(row=4, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
+        self.expression_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
-        ttk.Label(frame_base, text=self.t("Gaze:")).grid(row=4, column=2, sticky="w", pady=(6, 0))
+        ttk.Label(frame_base, text=self.t("Gaze:")).grid(row=3, column=2, sticky="w", pady=(6, 0))
         gaze_options = cg.get_gaze_options(self.ui_lang)
         self.gaze_var = tk.StringVar(value=gaze_options[0] if gaze_options else "")
         self.gaze_combo = ttk.Combobox(frame_base, textvariable=self.gaze_var, state="readonly")
         self.gaze_combo["values"] = gaze_options
-        self.gaze_combo.grid(row=4, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.gaze_combo.grid(row=3, column=3, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        ttk.Label(frame_base, text=self.t("Clothing Hint:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        clothing_hint_options = cg.get_clothing_hint_options(self.ui_lang)
+        self.clothing_hint_var = tk.StringVar(value=clothing_hint_options[0] if clothing_hint_options else "")
+        self.clothing_hint_combo = ttk.Combobox(frame_base, textvariable=self.clothing_hint_var, state="readonly")
+        self.clothing_hint_combo["values"] = clothing_hint_options
+        self.clothing_hint_combo.grid(row=4, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
 
         frame_base.columnconfigure(1, weight=1)
         frame_base.columnconfigure(3, weight=1)
@@ -662,7 +702,10 @@ class PromptApp:
         frame_hair.grid(row=1, column=0, sticky="ew", pady=(0, 8))
 
         ttk.Label(frame_hair, text=self.t("Hair Style:")).grid(row=0, column=0, sticky="w")
-        hair_style_options = cg.get_hair_style_options(self.ui_lang)
+        self.hair_style_options_by_gender = cg.get_hair_style_options_by_gender(self.ui_lang)
+        self.hair_style_all_options = cg.get_hair_style_options(self.ui_lang)
+        self.filter_hair_by_gender = tk.BooleanVar(value=True)
+        hair_style_options = self._get_filtered_hair_style_options()
         self.hair_style_var = tk.StringVar(value=hair_style_options[0] if hair_style_options else "")
         self.hair_style_combo = ttk.Combobox(frame_hair, textvariable=self.hair_style_var, state="readonly")
         self.hair_style_combo["values"] = hair_style_options
@@ -709,6 +752,14 @@ class PromptApp:
         self.hair_color_preview.grid(row=2, column=2, columnspan=2, sticky="ew", pady=(4, 0))
         self.hair_color_preview.columnconfigure(0, weight=1)
 
+        self.chk_filter_hair_by_gender = ttk.Checkbutton(
+            frame_hair,
+            text=self.t("Only show hair styles for current gender"),
+            variable=self.filter_hair_by_gender,
+            command=self.refresh_hair_style_options,
+        )
+        self.chk_filter_hair_by_gender.grid(row=2, column=0, sticky="w", pady=(4, 0), columnspan=2)
+
         ttk.Label(frame_hair, text=self.t("Bangs Presence:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
         bangs_presence_options = cg.get_bangs_presence_options(self.ui_lang)
         self.bangs_presence_var = tk.StringVar(value=bangs_presence_options[0] if bangs_presence_options else "")
@@ -725,6 +776,9 @@ class PromptApp:
 
         frame_hair.columnconfigure(1, weight=1)
         frame_hair.columnconfigure(3, weight=1)
+
+        self.gender_var.trace_add("write", self.refresh_hair_style_options)
+        self.refresh_hair_style_options()
 
         # --- Face ---
         frame_face = ttk.LabelFrame(left_col, text=self.t("Face"), padding=6)
@@ -819,8 +873,6 @@ class PromptApp:
         artist_scroll = ttk.Scrollbar(artist_list_frame, orient="vertical", command=self.artist_list.yview)
         artist_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.artist_list.config(yscrollcommand=artist_scroll.set)
-        for i in range(self.artist_list.size()):
-            self.artist_list.selection_set(i)
 
         # --- Style Reference ---
         frame_style_ref = ttk.LabelFrame(left_col, text=self.t("Style Reference (Optional)"), padding=6)
@@ -838,102 +890,6 @@ class PromptApp:
         self.chk_style_ref_only.pack(anchor="w", pady=(6, 0))
         self.chk_style_ref_only.config(state=tk.DISABLED)
 
-        # --- Outfit ---
-        frame_outfit = ttk.LabelFrame(right_col, text=self.t("Outfit"), padding=6)
-        frame_outfit.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
-        frame_outfit.columnconfigure(1, weight=1)
-        frame_outfit.columnconfigure(3, weight=1)
-
-        ttk.Label(frame_outfit, text=self.t("Outfit Type:")).grid(row=0, column=0, sticky="w")
-        outfit_type_options = cg.get_outfit_type_options(lang=self.ui_lang)
-        self.outfit_type_var = tk.StringVar(value=outfit_type_options[0] if outfit_type_options else "")
-        self.outfit_type_combo = ttk.Combobox(frame_outfit, textvariable=self.outfit_type_var, state="readonly")
-        self.outfit_type_combo["values"] = outfit_type_options
-        self.outfit_type_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10))
-
-        ttk.Label(frame_outfit, text=self.t("Outfit Colors:")).grid(row=0, column=2, sticky="w")
-        self.outfit_colors = []
-        color_controls = ttk.Frame(frame_outfit)
-        color_controls.grid(row=0, column=3, sticky="ew", padx=(5, 0))
-        color_controls.columnconfigure(0, weight=1)
-        self.btn_add_color = ttk.Button(color_controls, text=self.t("Add Color"), command=self.add_outfit_color, width=12)
-        self.btn_add_color.grid(row=0, column=0, sticky="w")
-        self.btn_clear_colors = ttk.Button(color_controls, text=self.t("Clear Colors"), command=self.clear_outfit_colors, width=12)
-        self.btn_clear_colors.grid(row=0, column=1, sticky="w", padx=(6, 0))
-
-        self.color_preview_frame = ttk.Frame(frame_outfit)
-        self.color_preview_frame.grid(row=1, column=2, columnspan=2, sticky="ew", pady=(4, 0))
-        self.color_preview_frame.columnconfigure(0, weight=1)
-
-        ttk.Label(frame_outfit, text=self.t("Material Finish:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
-        material_options = cg.get_material_options(self.ui_lang)
-        self.material_finish_var = tk.StringVar(value=material_options[0] if material_options else "")
-        self.material_finish_combo = ttk.Combobox(frame_outfit, textvariable=self.material_finish_var, state="readonly")
-        self.material_finish_combo["values"] = material_options
-        self.material_finish_combo.grid(row=2, column=1, sticky="ew", padx=(5, 10), pady=(6, 0))
-
-        apparel_frame = ttk.Frame(frame_outfit)
-        apparel_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", pady=(6, 0), padx=(0, 6))
-        ttk.Label(apparel_frame, text=self.t("Apparel Details")).grid(row=0, column=0, sticky="w")
-        apparel_list_frame = ttk.Frame(apparel_frame)
-        apparel_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.apparel_list = tk.Listbox(
-            apparel_list_frame,
-            selectmode=tk.MULTIPLE,
-            height=6,
-            exportselection=False,
-        )
-        for option in cg.get_apparel_detail_options(self.ui_lang):
-            self.apparel_list.insert(tk.END, option)
-        self.apparel_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_apparel = ttk.Scrollbar(apparel_list_frame, orient="vertical", command=self.apparel_list.yview)
-        scroll_apparel.pack(side=tk.RIGHT, fill=tk.Y)
-        self.apparel_list.config(yscrollcommand=scroll_apparel.set)
-        apparel_frame.columnconfigure(0, weight=1)
-
-        accessory_frame = ttk.Frame(frame_outfit)
-        accessory_frame.grid(row=3, column=2, columnspan=2, sticky="nsew", pady=(6, 0), padx=(6, 0))
-        ttk.Label(accessory_frame, text=self.t("Accessories")).grid(row=0, column=0, sticky="w")
-        accessory_list_frame = ttk.Frame(accessory_frame)
-        accessory_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.accessory_list = tk.Listbox(
-            accessory_list_frame,
-            selectmode=tk.MULTIPLE,
-            height=6,
-            exportselection=False,
-        )
-        for option in cg.get_accessory_options(self.ui_lang):
-            self.accessory_list.insert(tk.END, option)
-        self.accessory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_acc = ttk.Scrollbar(accessory_list_frame, orient="vertical", command=self.accessory_list.yview)
-        scroll_acc.pack(side=tk.RIGHT, fill=tk.Y)
-        self.accessory_list.config(yscrollcommand=scroll_acc.set)
-        accessory_frame.columnconfigure(0, weight=1)
-
-        # --- Misc ---
-        frame_misc = ttk.LabelFrame(right_col, text=self.t("Misc"), padding=6)
-        frame_misc.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
-        frame_misc.columnconfigure(0, weight=1)
-
-        ttk.Label(frame_misc, text=self.t("Misc Details")).grid(row=0, column=0, sticky="w")
-        misc_list_frame = ttk.Frame(frame_misc)
-        misc_list_frame.grid(row=1, column=0, sticky="nsew")
-        self.misc_list = tk.Listbox(
-            misc_list_frame,
-            selectmode=tk.MULTIPLE,
-            height=6,
-            exportselection=False,
-        )
-        for option in cg.get_misc_options(self.ui_lang):
-            self.misc_list.insert(tk.END, option)
-        self.misc_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        misc_scroll = ttk.Scrollbar(misc_list_frame, orient="vertical", command=self.misc_list.yview)
-        misc_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.misc_list.config(yscrollcommand=misc_scroll.set)
-
-        ttk.Label(frame_misc, text=self.t("Custom misc (comma separated):")).grid(row=2, column=0, sticky="w", pady=(6, 0))
-        self.custom_misc_var = tk.StringVar()
-        ttk.Entry(frame_misc, textvariable=self.custom_misc_var).grid(row=3, column=0, sticky="ew", pady=(2, 0))
 
         # --- Extra Modifiers ---
         action_bar = ttk.Frame(parent)
@@ -944,7 +900,6 @@ class PromptApp:
         self.extra_modifiers_var = tk.StringVar()
         ttk.Entry(action_bar, textvariable=self.extra_modifiers_var).grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
-        self.update_outfit_options()
         self._bind_character_auto_update()
         self.schedule_character_prompt_update()
 
@@ -982,7 +937,7 @@ class PromptApp:
         self.faction_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         self.faction_combo.bind("<<ComboboxSelected>>", self.update_clothing_faction_desc)
 
-        ttk.Label(frame_faction, text=self.t("Gender:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_faction, text=self.t("Outfit Gender:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
         gender_options = clg.get_gender_options(self.ui_lang)
         self.clothing_gender_var = tk.StringVar(value=gender_options[0] if gender_options else "")
         self.clothing_gender_combo = ttk.Combobox(frame_faction, textvariable=self.clothing_gender_var, state="readonly")
@@ -1066,42 +1021,55 @@ class PromptApp:
         self.outfit_category_combo["values"] = outfit_options
         self.outfit_category_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
-        ttk.Label(frame_outfit, text=self.t("Silhouette:")).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.show_all_outfits_var = tk.BooleanVar(value=False)
+        self.chk_show_all_outfits = ttk.Checkbutton(
+            frame_outfit,
+            text=self.t("Show all outfit categories"),
+            variable=self.show_all_outfits_var,
+            command=self.refresh_outfit_category_options,
+        )
+        self.chk_show_all_outfits.grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        ttk.Label(frame_outfit, text=self.t("Silhouette:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
         silhouette_options = clg.get_silhouette_options(self.ui_lang)
         self.silhouette_var = tk.StringVar(value=silhouette_options[0] if silhouette_options else "")
         self.silhouette_combo = ttk.Combobox(frame_outfit, textvariable=self.silhouette_var, state="readonly")
         self.silhouette_combo["values"] = silhouette_options
-        self.silhouette_combo.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.silhouette_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_outfit, text=self.t("Layering:")).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_outfit, text=self.t("Layering:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
         layering_options = clg.get_layering_options(self.ui_lang)
         self.layering_var = tk.StringVar(value=layering_options[0] if layering_options else "")
         self.layering_combo = ttk.Combobox(frame_outfit, textvariable=self.layering_var, state="readonly")
         self.layering_combo["values"] = layering_options
-        self.layering_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.layering_combo.grid(row=3, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_outfit, text=self.t("Material:")).grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_outfit, text=self.t("Material:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
         material_options = clg.get_material_options(self.ui_lang)
         self.clothing_material_var = tk.StringVar(value=material_options[0] if material_options else "")
         self.clothing_material_combo = ttk.Combobox(
             frame_outfit, textvariable=self.clothing_material_var, state="readonly"
         )
         self.clothing_material_combo["values"] = material_options
-        self.clothing_material_combo.grid(row=3, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.clothing_material_combo.grid(row=4, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_outfit, text=self.t("Palette:")).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_outfit, text=self.t("Palette:")).grid(row=5, column=0, sticky="w", pady=(6, 0))
         palette_options = clg.get_palette_options(self.ui_lang)
         self.palette_var = tk.StringVar(value=palette_options[0] if palette_options else "")
         self.palette_combo = ttk.Combobox(frame_outfit, textvariable=self.palette_var, state="readonly")
         self.palette_combo["values"] = palette_options
-        self.palette_combo.grid(row=4, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.palette_combo.grid(row=5, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
 
-        ttk.Label(frame_outfit, text=self.t("Wear State:")).grid(row=5, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(frame_outfit, text=self.t("Wear State:")).grid(row=6, column=0, sticky="w", pady=(6, 0))
         wear_state_options = clg.get_wear_state_options(self.ui_lang)
         self.wear_state_var = tk.StringVar(value=wear_state_options[0] if wear_state_options else "")
         self.wear_state_combo = ttk.Combobox(frame_outfit, textvariable=self.wear_state_var, state="readonly")
         self.wear_state_combo["values"] = wear_state_options
-        self.wear_state_combo.grid(row=5, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+        self.wear_state_combo.grid(row=6, column=1, sticky="ew", padx=(5, 0), pady=(6, 0))
+
+        self.role_var.trace_add("write", self.refresh_outfit_category_options)
+        self.clothing_gender_var.trace_add("write", self.refresh_outfit_category_options)
+        self.refresh_outfit_category_options()
 
         # --- Detail Accents ---
         frame_details = ttk.LabelFrame(right_col, text=self.t("Detail Accents"), padding=6)
@@ -1212,6 +1180,19 @@ class PromptApp:
         self.lbl_faction_desc.config(text=desc)
         self.schedule_clothing_prompt_update()
 
+    def refresh_outfit_category_options(self, *_):
+        allow_all = bool(self.show_all_outfits_var.get())
+        options = clg.get_outfit_category_options_for_role(self.ui_lang, self.role_var.get(), allow_all)
+        if not options:
+            options = clg.get_outfit_category_options(self.ui_lang)
+        current = self.outfit_category_var.get()
+        self.outfit_category_combo["values"] = options
+        if current in options:
+            self.outfit_category_var.set(current)
+        else:
+            self.outfit_category_var.set(options[0] if options else "")
+        self.schedule_clothing_prompt_update()
+
     def _select_image_path(self) -> str:
         return filedialog.askopenfilename(
             title=self.t("Select Image File(s)..."),
@@ -1303,10 +1284,12 @@ class PromptApp:
                 text_last=True,
             )
             self.pending_images = []
+            self.edit_undo_stack.clear()
             self.pending_image_bytes = image_bytes
             self.pending_image_mime = mime_type
             self.pending_image_prefix = "clothing_swap"
             self.root.after(0, self.show_preview_image)
+            self.root.after(0, self._refresh_undo_button)
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
             self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
         except Exception as e:
@@ -1353,6 +1336,44 @@ class PromptApp:
         lang_combo = ttk.Combobox(frame_lang, textvariable=self.lang_var, state="readonly")
         lang_combo["values"] = [self.t("English"), self.t("Chinese")]
         lang_combo.pack(fill=tk.X)
+
+        frame_hair_preview = ttk.LabelFrame(parent, text=self.t("Hair Preview Settings"), padding=5)
+        frame_hair_preview.pack(fill=tk.X, pady=(0, 10))
+        frame_hair_preview.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_hair_preview, text=self.t("Select Hair Style:")).grid(row=0, column=0, sticky="w")
+        self.hair_preview_style_var = tk.StringVar()
+        hair_preview_options = cg.get_hair_style_options(self.ui_lang)
+        if hair_preview_options:
+            self.hair_preview_style_var.set(hair_preview_options[0])
+        self.hair_preview_style_combo = ttk.Combobox(
+            frame_hair_preview,
+            textvariable=self.hair_preview_style_var,
+            state="readonly",
+        )
+        self.hair_preview_style_combo["values"] = hair_preview_options
+        self.hair_preview_style_combo.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+
+        self.hair_style_preview_canvas = tk.Canvas(
+            frame_hair_preview,
+            background="#eeeeee",
+            highlightthickness=0,
+            width=240,
+            height=200,
+        )
+        self.hair_style_preview_canvas.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 4))
+
+        hair_preview_btns = ttk.Frame(frame_hair_preview)
+        hair_preview_btns.grid(row=2, column=0, columnspan=2, sticky="ew")
+        ttk.Button(hair_preview_btns, text=self.t("Set Preview Image"), command=self.set_hair_style_preview).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 4)
+        )
+        ttk.Button(hair_preview_btns, text=self.t("Clear Preview"), command=self.clear_hair_style_preview).pack(
+            side=tk.LEFT, expand=True, fill=tk.X
+        )
+
+        self.hair_preview_style_var.trace_add("write", lambda *_: self.update_hair_style_preview())
+        self.update_hair_style_preview()
         
         ttk.Button(parent, text=self.t("Save Settings"), command=self.save_settings).pack(fill=tk.X, pady=(10, 0), ipady=6)
 
@@ -2088,59 +2109,111 @@ class PromptApp:
             chip = tk.Label(self.hair_color_preview, text=color.upper(), bg=color, fg=fg, padx=6, pady=2)
             chip.grid(row=0, column=idx, sticky="w", padx=(0, 4))
 
-    def add_outfit_color(self):
-        if len(self.outfit_colors) >= 5:
-            messagebox.showinfo(self.t("Outfit Colors:"), self.t("Max colors reached"))
-            return
-        color = colorchooser.askcolor(title=self.t("Outfit Colors:"))[1]
-        if color:
-            self.outfit_colors.append(color)
-            self._refresh_outfit_colors()
-            self.schedule_character_prompt_update()
+    def _get_gender_value(self) -> str:
+        mapping = cg.get_gender_label_map(self.ui_lang)
+        return mapping.get(self.gender_var.get(), self.gender_var.get())
 
-    def clear_outfit_colors(self):
-        if not self.outfit_colors:
-            return
-        self.outfit_colors = []
-        self._refresh_outfit_colors()
-        self.schedule_character_prompt_update()
+    def _get_hair_style_key(self) -> str:
+        label = self._get_current_hair_preview_label()
+        return self._get_hair_style_key_from_label(label)
 
-    def _refresh_outfit_colors(self):
-        for child in self.color_preview_frame.winfo_children():
-            child.destroy()
-        for idx, color in enumerate(self.outfit_colors):
-            fg = "#000000"
+    def _get_hair_style_key_from_label(self, label: str) -> str:
+        mapping = cg.get_hair_style_label_map(self.ui_lang)
+        normalized = (label or "").strip()
+        return mapping.get(normalized, normalized)
+
+    def _get_current_hair_preview_label(self) -> str:
+        if hasattr(self, "hair_preview_style_var"):
+            return self.hair_preview_style_var.get().strip()
+        return self.hair_style_var.get().strip()
+
+    def _get_filtered_hair_style_options(self) -> List[str]:
+        options_all = self.hair_style_all_options or cg.get_hair_style_options(self.ui_lang)
+        if not self.filter_hair_by_gender.get():
+            return options_all
+        gender_value = self._get_gender_value().lower()
+        if gender_value in ("male", "female"):
+            options_by_gender = self.hair_style_options_by_gender or cg.get_hair_style_options_by_gender(self.ui_lang)
+            neutral = options_by_gender.get("neutral", [])
+            return options_by_gender.get(gender_value, options_all) + [o for o in neutral if o not in options_by_gender.get(gender_value, options_all)]
+        options_by_gender = self.hair_style_options_by_gender or cg.get_hair_style_options_by_gender(self.ui_lang)
+        neutral = options_by_gender.get("neutral", [])
+        return neutral or options_all
+
+    def refresh_hair_style_options(self, *_):
+        options = self._get_filtered_hair_style_options()
+        self.hair_style_combo["values"] = options
+        current = self.hair_style_var.get()
+        if not options:
+            if current:
+                self.hair_style_var.set("")
+            self.update_hair_style_preview()
+            return
+        if current not in options:
+            self.hair_style_var.set(options[0])
+        self.update_hair_style_preview()
+
+    def _set_preview_canvas_image(self, canvas: tk.Canvas, path: str, size: tuple, attr_name: str):
+        photo = None
+        canvas.delete("all")
+        if path and os.path.exists(path):
             try:
-                r = int(color[1:3], 16)
-                g = int(color[3:5], 16)
-                b = int(color[5:7], 16)
-                luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
-                fg = "#000000" if luminance > 0.6 else "#ffffff"
+                img = Image.open(path)
+                img = img.convert("RGBA")
+                img.thumbnail(size, Image.LANCZOS)
+                bg = Image.new("RGBA", size, (238, 238, 238, 255))
+                offset = ((size[0] - img.size[0]) // 2, (size[1] - img.size[1]) // 2)
+                bg.paste(img, offset)
+                photo = ImageTk.PhotoImage(bg)
             except Exception:
-                fg = "#000000"
-            chip = tk.Label(self.color_preview_frame, text=color.upper(), bg=color, fg=fg, padx=6, pady=2)
-            chip.grid(row=0, column=idx, sticky="w", padx=(0, 4))
+                photo = None
+        if photo:
+            canvas.create_image(size[0] // 2, size[1] // 2, image=photo)
+        else:
+            canvas.create_text(size[0] // 2, size[1] // 2, text=self.t("No preview image"))
+        setattr(self, attr_name, photo)
 
-    def update_outfit_options(self, event=None):
-        profession = self.profession_var.get()
-        options = cg.get_outfit_type_options(profession, self.ui_lang)
-        self.outfit_type_combo["values"] = options
-        if self.outfit_type_var.get() not in options:
-            self.outfit_type_var.set(options[0] if options else "")
-        self.schedule_character_prompt_update()
+    def update_hair_style_preview(self):
+        if not hasattr(self, "hair_style_preview_canvas"):
+            return
+        key = self._get_hair_style_key()
+        path = self.hair_style_previews.get(key, "")
+        self._set_preview_canvas_image(self.hair_style_preview_canvas, path, (200, 200), "hair_style_preview_image")
+
+    def set_hair_style_preview(self):
+        key = self._get_hair_style_key()
+        if not key:
+            return
+        path = filedialog.askopenfilename(
+            title=self.t("Set Preview Image"),
+            filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp")],
+        )
+        if not path:
+            return
+        self.hair_style_previews[key] = path
+        self.save_hair_preview_config()
+        self.update_hair_style_preview()
+
+    def clear_hair_style_preview(self):
+        key = self._get_hair_style_key()
+        if not key:
+            return
+        if key in self.hair_style_previews:
+            self.hair_style_previews.pop(key, None)
+            self.save_hair_preview_config()
+        self.update_hair_style_preview()
 
     def _bind_character_auto_update(self):
         vars_to_watch = [
             self.gender_var,
             self.age_var,
-            self.profession_var,
-            self.custom_profession_var,
             self.body_type_var,
             self.skin_tone_var,
             self.framing_var,
             self.aspect_ratio_var,
             self.expression_var,
             self.gaze_var,
+            self.clothing_hint_var,
             self.hair_style_var,
             self.hair_color_var,
             self.hair_color_advanced,
@@ -2153,9 +2226,6 @@ class PromptApp:
             self.cheek_fullness_var,
             self.jaw_width_var,
             self.eye_color_var,
-            self.outfit_type_var,
-            self.material_finish_var,
-            self.custom_misc_var,
             self.extra_modifiers_var,
         ]
         for var in vars_to_watch:
@@ -2163,9 +2233,6 @@ class PromptApp:
 
         listboxes = [
             self.face_feature_list,
-            self.apparel_list,
-            self.accessory_list,
-            self.misc_list,
             self.artist_list,
         ]
         for lb in listboxes:
@@ -2196,9 +2263,6 @@ class PromptApp:
             include_extra_modifiers = False
         prompt = self._build_character_prompt(
             face_features=prompt_inputs["face_features"],
-            apparel_details=prompt_inputs["apparel_details"],
-            accessories=prompt_inputs["accessories"],
-            misc_details=prompt_inputs["misc_details"],
             artists=prompt_inputs["artists"],
             include_style=include_style,
             include_background=include_background,
@@ -2209,27 +2273,15 @@ class PromptApp:
 
     def _collect_character_prompt_inputs(self):
         face_features = [self.face_feature_list.get(i) for i in self.face_feature_list.curselection()]
-        apparel_details = [self.apparel_list.get(i) for i in self.apparel_list.curselection()]
-        accessories = [self.accessory_list.get(i) for i in self.accessory_list.curselection()]
-        misc_details = [self.misc_list.get(i) for i in self.misc_list.curselection()]
         artists = [self.artist_label_map.get(self.artist_list.get(i), self.artist_list.get(i)) for i in self.artist_list.curselection()]
-        custom_misc = self.custom_misc_var.get().strip()
-        if custom_misc:
-            misc_details.extend([f.strip() for f in custom_misc.split(",") if f.strip()])
         return {
             "face_features": face_features,
-            "apparel_details": apparel_details,
-            "accessories": accessories,
-            "misc_details": misc_details,
             "artists": artists,
         }
 
     def _build_character_prompt(
         self,
         face_features,
-        apparel_details,
-        accessories,
-        misc_details,
         artists,
         include_style: bool,
         include_background: bool = True,
@@ -2238,14 +2290,12 @@ class PromptApp:
     ):
         return cg.generate_character_prompt(
             gender=self.gender_var.get(),
-            profession=self.profession_var.get(),
             age=self.age_var.get(),
             framing=self.framing_var.get(),
             aspect_ratio=self.aspect_ratio_var.get(),
             expression=self.expression_var.get(),
             gaze=self.gaze_var.get(),
             appearance_features=face_features,
-            apparel_details=apparel_details,
             body_type=self.body_type_var.get(),
             skin_tone=self.skin_tone_var.get(),
             hair_style=self.hair_style_var.get(),
@@ -2260,14 +2310,9 @@ class PromptApp:
             cheek_fullness=self.cheek_fullness_var.get(),
             jaw_width=self.jaw_width_var.get(),
             eye_color=self.eye_color_var.get(),
-            outfit_type=self.outfit_type_var.get(),
-            material_finish=self.material_finish_var.get(),
-            accessories=accessories,
-            misc_details=misc_details,
-            outfit_colors=self.outfit_colors,
+            clothing_hint=self.clothing_hint_var.get(),
             artists=artists,
             lang=self.ui_lang,
-            custom_profession=self.custom_profession_var.get(),
             extra_modifiers=self.extra_modifiers_var.get(),
             include_style=include_style,
             include_background=include_background,
@@ -2393,9 +2438,6 @@ class PromptApp:
             prompt_inputs = self._collect_character_prompt_inputs()
             prompt = self._build_character_prompt(
                 face_features=prompt_inputs["face_features"],
-                apparel_details=prompt_inputs["apparel_details"],
-                accessories=prompt_inputs["accessories"],
-                misc_details=prompt_inputs["misc_details"],
                 artists=prompt_inputs["artists"],
                 include_style=False,
                 include_background=True,
@@ -2454,10 +2496,12 @@ class PromptApp:
                 reference_images=reference_images,
             )
             self.pending_images = []
+            self.edit_undo_stack.clear()
             self.pending_image_bytes = image_bytes
             self.pending_image_mime = mime_type
             self.pending_image_prefix = self.get_current_module_prefix()
             self.root.after(0, self.show_preview_image)
+            self.root.after(0, self._refresh_undo_button)
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
             self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
         except Exception as e:
@@ -2496,10 +2540,12 @@ class PromptApp:
                 api_key=api_key,
                 model=model,
             )
+            self.edit_undo_stack.append({"bytes": image_bytes, "mime": image_mime})
             self.pending_image_bytes = edited_bytes
             self.pending_image_mime = mime_type
             self.pending_image_prefix = f"{self.get_current_module_prefix()}_edit"
             self.root.after(0, self.show_preview_image)
+            self.root.after(0, self._refresh_undo_button)
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
             self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
         except Exception as e:
@@ -2527,9 +2573,11 @@ class PromptApp:
         self.pending_images = [{"bytes": b, "mime": m} for b, m in results]
         self.pending_image_bytes = None
         self.pending_image_mime = None
+        self.edit_undo_stack.clear()
         self.pending_image_prefix = self.get_current_module_prefix()
         self.active_preview_index = 0
         self.root.after(0, self.show_preview_images)
+        self.root.after(0, self._refresh_undo_button)
         self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
         self.root.after(0, lambda: self.status_var.set(self.t("Image ready. Use Save/Discard.")))
 
@@ -2587,7 +2635,7 @@ class PromptApp:
         self.active_preview_index = index
         dialog = tk.Toplevel(self.root)
         dialog.title(self.t("Image Preview"))
-        dialog.geometry("720x720")
+        dialog.geometry("720x860")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -2595,7 +2643,7 @@ class PromptApp:
         img_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         nav_frame = ttk.Frame(dialog)
-        nav_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        nav_frame.pack(fill=tk.X, padx=10, pady=(0, 6))
 
         action_frame = ttk.Frame(dialog)
         action_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -2604,7 +2652,7 @@ class PromptApp:
             try:
                 item = self.pending_images[self.active_preview_index]
                 img = Image.open(io.BytesIO(item["bytes"]))
-                img.thumbnail((680, 640))
+                img.thumbnail((680, 680))
                 photo = ImageTk.PhotoImage(img)
                 img_label.image = photo
                 img_label.config(image=photo, text="")
@@ -2641,10 +2689,22 @@ class PromptApp:
                 return
             self._discard_active_pending_image(dialog)
 
+        def edit_selected():
+            if not self.pending_images:
+                return
+            item = self.pending_images[self.active_preview_index]
+            self.pending_image_bytes = item["bytes"]
+            self.pending_image_mime = item["mime"]
+            dialog.destroy()
+            self.open_edit_dialog()
+
         ttk.Button(action_frame, text=self.t("Save Selected"), command=save_selected).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5)
         )
         ttk.Button(action_frame, text=self.t("Discard Selected"), command=discard_selected).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 5)
+        )
+        ttk.Button(action_frame, text=self.t("Edit Image"), command=edit_selected).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0)
         )
 
@@ -2702,13 +2762,36 @@ class PromptApp:
         self.pending_image_mime = None
         self.pending_images = []
         self.preview_photo = None
+        self.edit_undo_stack.clear()
         self.preview_label.config(text=self.t("No preview image"), image="")
         self.preview_label.pack(fill=tk.BOTH, expand=False, pady=(5, 10))
         self.preview_grid.pack_forget()
         self.btn_save_image.config(state=tk.DISABLED)
         self.btn_discard_image.config(state=tk.DISABLED)
         self.btn_edit_image.config(state=tk.DISABLED)
+        self.btn_undo_edit.config(state=tk.DISABLED)
         self.status_var.set(self.t("Image discarded."))
+
+    def undo_edit_image(self):
+        if not self.edit_undo_stack:
+            return
+        prev = self.edit_undo_stack.pop()
+        self.pending_image_bytes = prev["bytes"]
+        self.pending_image_mime = prev["mime"]
+        self.pending_image_prefix = self.get_current_module_prefix()
+        self.show_preview_image()
+        self._refresh_undo_button()
+        depth = len(self.edit_undo_stack)
+        if depth > 0:
+            self.status_var.set(self.t("Reverted to previous version. {n} more undo(s) available.").format(n=depth))
+        else:
+            self.status_var.set(self.t("Reverted to original image."))
+
+    def _refresh_undo_button(self):
+        if self.edit_undo_stack:
+            self.btn_undo_edit.config(state=tk.NORMAL)
+        else:
+            self.btn_undo_edit.config(state=tk.DISABLED)
 
     def get_current_module_prefix(self):
         current = self.notebook.select()

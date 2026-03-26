@@ -250,6 +250,18 @@ def _get_option_pairs(config: Dict[str, List], key: str, default_pairs: List[tup
     return pairs if pairs else default_pairs
 
 
+def _merge_option_pairs(*pair_lists: List[tuple]) -> List[tuple]:
+    seen = set()
+    merged: List[tuple] = []
+    for pairs in pair_lists:
+        for en, zh in pairs:
+            if en in seen:
+                continue
+            seen.add(en)
+            merged.append((en, zh))
+    return merged
+
+
 GENDER_OPTION_PAIRS = [
     ("Unspecified", "未指定"),
     ("Male", "男性"),
@@ -357,6 +369,42 @@ HAIR_STYLE_OPTION_PAIRS = [
     ("undercut", "两侧剃短"),
     ("shaved sides", "侧剃"),
 ]
+HAIR_STYLE_OPTION_PAIRS_MALE = [
+    ("Unspecified", "未指定"),
+    ("short cropped", "超短发"),
+    ("short layered", "短层次"),
+    ("slicked back", "后梳"),
+    ("undercut", "两侧剃短"),
+    ("shaved sides", "侧剃"),
+    ("wolf cut", "狼尾"),
+    ("pixie cut", "精灵短发"),
+    ("bob cut", "波波头"),
+]
+HAIR_STYLE_OPTION_PAIRS_FEMALE = [
+    ("Unspecified", "未指定"),
+    ("pixie cut", "精灵短发"),
+    ("bob cut", "波波头"),
+    ("long straight", "长直发"),
+    ("long wavy", "长卷发"),
+    ("twin tails", "双马尾"),
+    ("high ponytail", "高马尾"),
+    ("low ponytail", "低马尾"),
+    ("braided", "编发"),
+    ("half-up", "半扎发"),
+    ("hime cut", "姬发式"),
+    ("wolf cut", "狼尾"),
+]
+HAIR_STYLE_OPTION_PAIRS_NEUTRAL = [
+    ("Unspecified", "未指定"),
+    ("short cropped", "超短发"),
+    ("short layered", "短层次"),
+    ("slicked back", "后梳"),
+    ("bob cut", "波波头"),
+    ("pixie cut", "精灵短发"),
+    ("wolf cut", "狼尾"),
+    ("undercut", "两侧剃短"),
+    ("shaved sides", "侧剃"),
+]
 BANGS_PRESENCE_OPTION_PAIRS = [
     ("Unspecified", "未指定"),
     ("with bangs", "有刘海"),
@@ -420,135 +468,14 @@ EYE_COLOR_OPTION_PAIRS = [
     ("gray", "灰色"),
     ("red (cybernetic glow)", "红色（义眼发光）"),
 ]
-OUTFIT_PALETTE_OPTION_PAIRS = [
-    ("Unspecified", "未指定"),
-    ("navy and graphite", "海军蓝与石墨灰"),
-    ("charcoal and steel", "炭灰与钢色"),
-    ("white and cobalt", "白与钴蓝"),
-    ("cream and brass", "米白与黄铜"),
-    ("black and neon teal", "黑与霓虹青"),
-    ("olive and sand", "橄榄绿与沙色"),
-    ("crimson and slate", "深红与板岩灰"),
-    ("orange and gunmetal", "橙与枪灰"),
-]
-OUTFIT_TYPE_OPTION_PAIRS = [
-    ("Unspecified", "未指定"),
-    ("uniform", "制服"),
+CLOTHING_HINT_OPTION_PAIRS = [
+    ("plain neutral garment", "素色中性服装"),
+    ("military uniform", "军装"),
     ("flight suit", "飞行服"),
-    ("explorer gear", "探索装备"),
-    ("pilot jacket", "飞行员夹克"),
-    ("tactical uniform", "战术制服"),
-    ("mechanic coveralls", "机修连体服"),
-    ("lab coat", "研究员白袍"),
-    ("diplomatic attire", "外交正装"),
-    ("android bodysuit", "仿生紧身衣"),
-    ("plugsuit", "紧身驾驶服"),
+    ("casual clothing", "便装"),
     ("school uniform", "校服"),
-    ("casual streetwear", "日常便装"),
-    ("civilian workwear", "市民工装"),
-    ("layered travel clothing", "分层旅行装"),
-    ("ragged clothing", "破旧衣物"),
-]
-MATERIAL_OPTION_PAIRS = [
-    ("Unspecified", "未指定"),
-    ("matte metal", "哑光金属"),
-    ("brushed steel", "拉丝钢"),
-    ("glossy polymer", "高光聚合物"),
-    ("textured fabric", "纹理布料"),
-    ("leather", "皮革"),
-    ("carbon fiber", "碳纤维"),
-    ("kevlar weave", "凯夫拉编织"),
-]
-APPAREL_DETAIL_OPTION_PAIRS = [
-    ("tactical harness", "战术背带"),
-    ("utility straps", "工具束带"),
-    ("pilot gloves", "飞行员手套"),
-    ("sleeve patches", "袖章"),
-    ("collar insignia", "领章徽记"),
-    ("high collar", "高领"),
-    ("layered jacket", "叠穿夹克"),
-    ("armored vest", "护甲背心"),
-    ("panel seams", "拼接线"),
-    ("cargo pockets", "工装口袋"),
-    ("zipped sleeves", "拉链袖"),
-    ("weathered fabric", "磨损布料"),
-    ("hooded capelet", "短披风帽"),
-    ("rolled sleeves", "卷起袖口"),
-]
-ACCESSORY_OPTION_PAIRS = [
-    ("utility belt", "工具腰带"),
-    ("shoulder pauldron", "肩甲"),
-    ("rank badge", "军衔徽章"),
-    ("wrist console", "腕部终端"),
-    ("holster rig", "枪套"),
-    ("capsule respirator", "呼吸器"),
-    ("insignia pin", "徽章别针"),
-    ("multi-tool", "多功能工具"),
-    ("necklace tag", "识别吊牌"),
-    ("ear cuff", "耳骨夹"),
-    ("ring set", "戒指组"),
-    ("armband", "臂环"),
-    ("utility pouch", "工具小包"),
-    ("data pad", "数据板"),
-    ("camera drone", "侦察无人机"),
-    ("headset", "耳机"),
-    ("earring", "耳环"),
-]
-TECH_DETAIL_OPTION_PAIRS = [
-    ("glowing circuit lines", "发光电路线"),
-    ("holographic HUD panel", "全息 HUD 面板"),
-    ("luminescent seams", "发光缝线"),
-    ("energy core module", "能量核心模块"),
-    ("micro-thruster pack", "微型推进器"),
-    ("signal antenna", "信号天线"),
-    ("magnetic clasps", "磁力搭扣"),
-    ("cybernetic eye", "义眼"),
-    ("neural interface ports", "神经接口端口"),
-    ("data cable ports", "数据线端口"),
-    ("optical HUD glow", "光学 HUD 发光"),
-    ("powered gauntlet", "动力护臂"),
-    ("exo brace", "外骨骼支架"),
-    ("mechanical tubing", "机械管线"),
-    ("hologram emitter", "全息投影器"),
-    ("prosthetic arm", "义肢手臂"),
-    ("earpiece communicator", "通讯耳机"),
-    ("visor", "护目镜"),
-]
-MARKING_OPTION_PAIRS = [
-    ("unit number stencil", "单位编号喷绘"),
-    ("warning decals", "警示贴纸"),
-    ("barcode tattoo", "条码纹身"),
-    ("faction emblem tattoo", "阵营纹章纹身"),
-    ("caution stripes", "警戒条纹"),
-    ("serial number decal", "序列号贴"),
-    ("maintenance markings", "维护标记"),
-]
-MISC_OPTION_PAIRS = [
-    ("glowing circuit lines", "发光电路线"),
-    ("holographic HUD panel", "全息 HUD 面板"),
-    ("luminescent seams", "发光缝线"),
-    ("energy core module", "能量核心模块"),
-    ("micro-thruster pack", "微型推进器"),
-    ("signal antenna", "信号天线"),
-    ("magnetic clasps", "磁力搭扣"),
-    ("cybernetic eye", "义眼"),
-    ("neural interface ports", "神经接口端口"),
-    ("data cable ports", "数据线端口"),
-    ("optical HUD glow", "光学 HUD 发光"),
-    ("powered gauntlet", "动力护臂"),
-    ("exo brace", "外骨骼支架"),
-    ("mechanical tubing", "机械管线"),
-    ("hologram emitter", "全息投影器"),
-    ("prosthetic arm", "义肢手臂"),
-    ("earpiece communicator", "通讯耳机"),
-    ("visor", "护目镜"),
-    ("unit number stencil", "单位编号喷绘"),
-    ("warning decals", "警示贴纸"),
-    ("barcode tattoo", "条码纹身"),
-    ("faction emblem tattoo", "阵营纹章纹身"),
-    ("caution stripes", "警戒条纹"),
-    ("serial number decal", "序列号贴"),
-    ("maintenance markings", "维护标记"),
+    ("formal attire", "正装"),
+    ("work coveralls", "工装"),
 ]
 
 OPTIONS_CONFIG = _load_options_config()
@@ -562,6 +489,14 @@ APPEARANCE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "appearance_features
 BODY_TYPE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "body_type_options", BODY_TYPE_OPTION_PAIRS)
 SKIN_TONE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "skin_tone_options", SKIN_TONE_OPTION_PAIRS)
 HAIR_COLOR_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "hair_color_options", HAIR_COLOR_OPTION_PAIRS)
+HAIR_STYLE_OPTION_PAIRS_MALE = _get_option_pairs(OPTIONS_CONFIG, "hair_style_options_male", HAIR_STYLE_OPTION_PAIRS_MALE)
+HAIR_STYLE_OPTION_PAIRS_FEMALE = _get_option_pairs(OPTIONS_CONFIG, "hair_style_options_female", HAIR_STYLE_OPTION_PAIRS_FEMALE)
+HAIR_STYLE_OPTION_PAIRS_NEUTRAL = _get_option_pairs(OPTIONS_CONFIG, "hair_style_options_neutral", HAIR_STYLE_OPTION_PAIRS_NEUTRAL)
+HAIR_STYLE_OPTION_PAIRS = _merge_option_pairs(
+    HAIR_STYLE_OPTION_PAIRS_MALE,
+    HAIR_STYLE_OPTION_PAIRS_FEMALE,
+    HAIR_STYLE_OPTION_PAIRS_NEUTRAL,
+)
 HAIR_STYLE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "hair_style_options", HAIR_STYLE_OPTION_PAIRS)
 BANGS_PRESENCE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "bangs_presence_options", BANGS_PRESENCE_OPTION_PAIRS)
 BANGS_STYLE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "bangs_style_options", BANGS_STYLE_OPTION_PAIRS)
@@ -572,113 +507,18 @@ MOUTH_SHAPE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "mouth_shape_option
 CHEEK_FULLNESS_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "cheek_fullness_options", CHEEK_FULLNESS_OPTION_PAIRS)
 JAW_WIDTH_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "jaw_width_options", JAW_WIDTH_OPTION_PAIRS)
 EYE_COLOR_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "eye_color_options", EYE_COLOR_OPTION_PAIRS)
-OUTFIT_PALETTE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "outfit_palette_options", OUTFIT_PALETTE_OPTION_PAIRS)
-OUTFIT_TYPE_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "outfit_type_options", OUTFIT_TYPE_OPTION_PAIRS)
-MATERIAL_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "material_options", MATERIAL_OPTION_PAIRS)
-APPAREL_DETAIL_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "apparel_details", APPAREL_DETAIL_OPTION_PAIRS)
-ACCESSORY_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "accessories", ACCESSORY_OPTION_PAIRS)
-TECH_DETAIL_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "tech_details", TECH_DETAIL_OPTION_PAIRS)
-MARKING_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "markings", MARKING_OPTION_PAIRS)
-MISC_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "misc_details", MISC_OPTION_PAIRS)
+CLOTHING_HINT_OPTION_PAIRS = _get_option_pairs(OPTIONS_CONFIG, "clothing_hint_options", CLOTHING_HINT_OPTION_PAIRS)
 
-PROFESSION_PRESETS: Dict[str, Dict[str, str]] = {
-    "Space Pilot": {
-        "role": "real-robot era space pilot",
-    },
-    "Starship Engineer": {
-        "role": "starship engineer",
-    },
-    "Bounty Hunter": {
-        "role": "space bounty hunter",
-    },
-    "Station Security": {
-        "role": "space station security officer",
-    },
-    "Scientist": {
-        "role": "research scientist",
-    },
-    "Navigator": {
-        "role": "ship navigator",
-    },
-    "Smuggler": {
-        "role": "space smuggler",
-    },
-    "Medic": {
-        "role": "space medic",
-    },
-    "Mech Technician": {
-        "role": "mech technician",
-    },
-    "Explorer": {
-        "role": "deep space explorer",
-    },
-    "Diplomat": {
-        "role": "interstellar diplomat",
-    },
-    "Android": {
-        "role": "human-like android",
-    },
-    "Student": {
-        "role": "space colony student",
-    },
-    "Civilian": {
-        "role": "space colony civilian",
-    },
-    "Drifter": {
-        "role": "space colony drifter",
-    },
-}
-
-PROFESSION_OPTION_PAIRS = [
-    ("Space Pilot", "飞行员"),
-    ("Starship Engineer", "星舰工程师"),
-    ("Bounty Hunter", "赏金猎人"),
-    ("Station Security", "空间站安保"),
-    ("Scientist", "科学家"),
-    ("Navigator", "航行员"),
-    ("Smuggler", "走私者"),
-    ("Medic", "医疗官"),
-    ("Mech Technician", "机甲技师"),
-    ("Explorer", "探险者"),
-    ("Diplomat", "外交官"),
-    ("Android", "仿生人"),
-    ("Student", "学生"),
-    ("Civilian", "普通市民"),
-    ("Drifter", "流浪汉"),
-]
-
-PROFESSION_OUTFIT_MAP: Dict[str, List[str]] = {
-    "Space Pilot": ["flight suit", "pilot jacket", "uniform"],
-    "Navigator": ["uniform", "flight suit"],
-    "Starship Engineer": ["mechanic coveralls", "civilian workwear", "uniform"],
-    "Mech Technician": ["mechanic coveralls", "tactical uniform"],
-    "Station Security": ["tactical uniform", "uniform"],
-    "Bounty Hunter": ["tactical uniform", "pilot jacket", "explorer gear"],
-    "Explorer": ["explorer gear", "flight suit", "layered travel clothing"],
-    "Smuggler": ["pilot jacket", "casual streetwear", "explorer gear"],
-    "Scientist": ["lab coat", "civilian workwear"],
-    "Medic": ["lab coat", "uniform", "tactical uniform"],
-    "Diplomat": ["diplomatic attire", "uniform"],
-    "Android": ["android bodysuit", "uniform"],
-    "Student": ["school uniform", "casual streetwear"],
-    "Civilian": ["casual streetwear", "civilian workwear"],
-    "Drifter": ["layered travel clothing", "ragged clothing"],
-}
-
-if isinstance(OPTIONS_CONFIG.get("profession_outfits"), dict):
-    for profession, outfits in OPTIONS_CONFIG["profession_outfits"].items():
-        if isinstance(outfits, list):
-            cleaned = [str(o).strip() for o in outfits if str(o).strip()]
-            if cleaned:
-                PROFESSION_OUTFIT_MAP[profession] = cleaned
-
-
-def get_profession_options(lang: str = "en") -> List[str]:
-    return _make_options(PROFESSION_OPTION_PAIRS, lang)
+def get_clothing_hint_options(lang: str = "en") -> List[str]:
+    return _make_options(CLOTHING_HINT_OPTION_PAIRS, lang)
 
 
 def get_gender_options(lang: str = "en") -> List[str]:
     return _make_options(GENDER_OPTION_PAIRS, lang)
+
+
+def get_gender_label_map(lang: str = "en") -> Dict[str, str]:
+    return _make_option_map(GENDER_OPTION_PAIRS, lang)
 
 
 def get_age_options(lang: str = "en") -> List[str]:
@@ -721,12 +561,28 @@ def get_hair_style_options(lang: str = "en") -> List[str]:
     return _make_options(HAIR_STYLE_OPTION_PAIRS, lang)
 
 
+def get_hair_style_options_by_gender(lang: str = "en") -> Dict[str, List[str]]:
+    return {
+        "male": _make_options(HAIR_STYLE_OPTION_PAIRS_MALE, lang),
+        "female": _make_options(HAIR_STYLE_OPTION_PAIRS_FEMALE, lang),
+        "neutral": _make_options(HAIR_STYLE_OPTION_PAIRS_NEUTRAL, lang),
+    }
+
+
+def get_hair_style_label_map(lang: str = "en") -> Dict[str, str]:
+    return _make_option_map(HAIR_STYLE_OPTION_PAIRS, lang)
+
+
 def get_bangs_presence_options(lang: str = "en") -> List[str]:
     return _make_options(BANGS_PRESENCE_OPTION_PAIRS, lang)
 
 
 def get_bangs_style_options(lang: str = "en") -> List[str]:
     return _make_options(BANGS_STYLE_OPTION_PAIRS, lang)
+
+
+def get_bangs_style_label_map(lang: str = "en") -> Dict[str, str]:
+    return _make_option_map(BANGS_STYLE_OPTION_PAIRS, lang)
 
 
 def get_face_shape_options(lang: str = "en") -> List[str]:
@@ -757,43 +613,6 @@ def get_eye_color_options(lang: str = "en") -> List[str]:
     return _make_options(EYE_COLOR_OPTION_PAIRS, lang)
 
 
-def get_outfit_type_options(profession: Optional[str] = None, lang: str = "en") -> List[str]:
-    profession_key = None
-    if profession:
-        profession_key = _label_to_value(profession, _make_option_map(PROFESSION_OPTION_PAIRS, lang))
-    if profession_key and profession_key in PROFESSION_OUTFIT_MAP:
-        opts = ["Unspecified"] + PROFESSION_OUTFIT_MAP[profession_key]
-        label_map = _make_label_map(OUTFIT_TYPE_OPTION_PAIRS, lang)
-        return [label_map.get(opt, opt) for opt in opts]
-    return _make_options(OUTFIT_TYPE_OPTION_PAIRS, lang)
-
-
-def get_outfit_palette_options(lang: str = "en") -> List[str]:
-    return _make_options(OUTFIT_PALETTE_OPTION_PAIRS, lang)
-
-
-def get_material_options(lang: str = "en") -> List[str]:
-    return _make_options(MATERIAL_OPTION_PAIRS, lang)
-
-
-def get_apparel_detail_options(lang: str = "en") -> List[str]:
-    return _make_options(APPAREL_DETAIL_OPTION_PAIRS, lang)
-
-
-def get_accessory_options(lang: str = "en") -> List[str]:
-    return _make_options(ACCESSORY_OPTION_PAIRS, lang)
-
-
-def get_tech_detail_options(lang: str = "en") -> List[str]:
-    return _make_options(TECH_DETAIL_OPTION_PAIRS, lang)
-
-
-def get_marking_options(lang: str = "en") -> List[str]:
-    return _make_options(MARKING_OPTION_PAIRS, lang)
-
-
-def get_misc_options(lang: str = "en") -> List[str]:
-    return _make_options(MISC_OPTION_PAIRS, lang)
 
 
 def _format_subject(
@@ -801,12 +620,10 @@ def _format_subject(
     gender: Optional[str],
     age: Optional[str],
     body_type: Optional[str],
-    role: str,
-    outfit: Optional[str],
+    clothing_hint: Optional[str],
     expression: str,
     gaze: str,
     appearance_features: List[str],
-    apparel_details: List[str],
     skin_tone: Optional[str],
     hair_style: Optional[str],
     hair_color: Optional[str],
@@ -820,11 +637,6 @@ def _format_subject(
     cheek_fullness: Optional[str],
     jaw_width: Optional[str],
     eye_color: Optional[str],
-    outfit_type: Optional[str],
-    outfit_colors: List[str],
-    material_finish: Optional[str],
-    accessories: List[str],
-    misc_details: List[str],
 ) -> str:
     descriptors = []
     if age and age != "Unspecified":
@@ -836,9 +648,9 @@ def _format_subject(
 
     descriptor_str = " ".join(descriptors)
     if descriptor_str:
-        subject = f"a {descriptor_str} {role}"
+        subject = f"a {descriptor_str} character"
     else:
-        subject = f"a {role}"
+        subject = "a character"
 
     features = list(appearance_features)
     if skin_tone and skin_tone != "Unspecified":
@@ -880,42 +692,24 @@ def _format_subject(
         features.append(jaw_width)
     if eye_color and eye_color != "Unspecified":
         features.append(f"{eye_color} eyes")
-    if apparel_details:
-        features.extend(apparel_details)
-    if accessories:
-        features.extend(accessories)
-    if misc_details:
-        features.extend(misc_details)
 
     feature_text = ""
     if features:
         feature_text = " with " + ", ".join(features)
 
-    outfit_text = f"{outfit}" if outfit else "wearing a late-20th-century military sci-fi uniform"
-    if outfit_type and outfit_type != "Unspecified":
-        if outfit:
-            outfit_text = f"{outfit_text} styled as {outfit_type}"
-        else:
-            outfit_text = f"wearing a {outfit_type}"
-    palette_text = _colors_to_palette_text(outfit_colors)
-    if palette_text:
-        outfit_text = f"{outfit_text} in a palette of {palette_text}"
-    if material_finish and material_finish != "Unspecified":
-        outfit_text = f"{outfit_text}, featuring {material_finish} materials"
+    clothing_text = f"wearing a {clothing_hint}" if clothing_hint else "wearing a plain neutral garment"
 
-    return f"{framing}, {subject} {outfit_text}{feature_text}, {expression}, {gaze}."
+    return f"{framing}, {subject} {clothing_text}{feature_text}, {expression}, {gaze}."
 
 
 def generate_character_prompt(
     gender: str,
-    profession: str,
     age: int,
     framing: str,
     aspect_ratio: str,
     expression: str,
     gaze: str,
     appearance_features: List[str],
-    apparel_details: List[str],
     body_type: str,
     skin_tone: str,
     hair_style: str,
@@ -930,14 +724,9 @@ def generate_character_prompt(
     cheek_fullness: str,
     jaw_width: str,
     eye_color: str,
-    outfit_type: str,
-    material_finish: str,
-    accessories: List[str],
-    misc_details: List[str],
-    outfit_colors: List[str],
+    clothing_hint: str,
     artists: List[str],
     lang: str = "en",
-    custom_profession: str = "",
     extra_modifiers: str = "",
     include_style: bool = True,
     include_background: bool = True,
@@ -963,31 +752,19 @@ def generate_character_prompt(
     cheek_fullness_value = _label_to_value(cheek_fullness, _make_option_map(CHEEK_FULLNESS_OPTION_PAIRS, lang))
     jaw_width_value = _label_to_value(jaw_width, _make_option_map(JAW_WIDTH_OPTION_PAIRS, lang))
     eye_color_value = _label_to_value(eye_color, _make_option_map(EYE_COLOR_OPTION_PAIRS, lang))
-    outfit_type_value = _label_to_value(outfit_type, _make_option_map(OUTFIT_TYPE_OPTION_PAIRS, lang))
-    material_finish_value = _label_to_value(material_finish, _make_option_map(MATERIAL_OPTION_PAIRS, lang))
+    clothing_hint_value = _label_to_value(clothing_hint, _make_option_map(CLOTHING_HINT_OPTION_PAIRS, lang))
 
     appearance_values = _labels_to_values(appearance_features, _make_option_map(APPEARANCE_OPTION_PAIRS, lang))
-    apparel_values = _labels_to_values(apparel_details, _make_option_map(APPAREL_DETAIL_OPTION_PAIRS, lang))
-    accessories_values = _labels_to_values(accessories, _make_option_map(ACCESSORY_OPTION_PAIRS, lang))
-    misc_values = _labels_to_values(misc_details, _make_option_map(MISC_OPTION_PAIRS, lang))
-
-    profession_key = _label_to_value(profession, _make_option_map(PROFESSION_OPTION_PAIRS, lang))
-    preset = PROFESSION_PRESETS.get(profession_key)
-    has_custom_profession = bool(custom_profession.strip())
-    role = custom_profession.strip() if has_custom_profession else (preset["role"] if preset else "sci-fi character")
-    outfit = None
 
     subject_line = _format_subject(
         framing=framing_value,
         gender=gender_value,
         age=age_value,
         body_type=body_type_value,
-        role=role,
-        outfit=outfit,
+        clothing_hint=clothing_hint_value,
         expression=expression_value,
         gaze=gaze_value,
         appearance_features=appearance_values,
-        apparel_details=apparel_values,
         skin_tone=skin_tone_value,
         hair_style=hair_style_value,
         hair_color=hair_color_value,
@@ -1001,11 +778,6 @@ def generate_character_prompt(
         cheek_fullness=cheek_fullness_value,
         jaw_width=jaw_width_value,
         eye_color=eye_color_value,
-        outfit_type=outfit_type_value,
-        outfit_colors=outfit_colors,
-        material_finish=material_finish_value,
-        accessories=accessories_values,
-        misc_details=misc_values,
     )
 
     ratio_line = ""
@@ -1019,7 +791,6 @@ def generate_character_prompt(
         parts.extend(["", ratio_line])
     style_cfg = _load_style_config()
     if include_style:
-        style_cfg = _load_style_config()
         style_line = style_cfg["style"]
         if artists:
             artist_text = ", ".join([a.strip() for a in artists if a.strip()])

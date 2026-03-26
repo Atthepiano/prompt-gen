@@ -67,6 +67,11 @@ def _make_option_map(pairs: List[tuple], lang: str) -> Dict[str, str]:
     return {(zh if use_zh else en): en for en, zh in pairs}
 
 
+def _make_value_to_label_map(pairs: List[tuple], lang: str) -> Dict[str, str]:
+    use_zh = lang == "zh"
+    return {en: (zh if use_zh else en) for en, zh in pairs}
+
+
 def _label_to_value(label: str, mapping: Dict[str, str]) -> str:
     return mapping.get(label, label)
 
@@ -146,6 +151,8 @@ OUTFIT_CATEGORY_PAIRS = [
     ("cargo crew workwear", "货运工装"),
     ("corporate security kit", "企业安保制服"),
     ("civilian utility wear", "民用功能装"),
+    ("service uniform", "服务制服"),
+    ("hospitality apron", "餐饮围裙制服"),
     ("school uniform", "校服"),
     ("office attire", "办公通勤装"),
     ("commuter jacket", "通勤夹克"),
@@ -251,6 +258,28 @@ ASPECT_RATIO_PAIRS = [
     ("2:3 portrait", "2:3 竖幅"),
 ]
 
+ROLE_OUTFIT_CATEGORY_MAP = {
+    "pilot": ["flight suit", "tactical uniform", "command uniform", "EVA soft suit"],
+    "mechanic": ["engineering coveralls", "cargo crew workwear", "civilian utility wear"],
+    "systems engineer": ["engineering coveralls", "civilian utility wear", "office attire", "commuter jacket"],
+    "security officer": ["tactical uniform", "corporate security kit", "command uniform"],
+    "field medic": ["medical response kit", "tactical uniform", "civilian utility wear"],
+    "navigation officer": ["command uniform", "tactical uniform", "office attire"],
+    "comms operator": ["command uniform", "tactical uniform", "office attire", "commuter jacket"],
+    "diplomatic liaison": ["command uniform", "office attire", "commuter jacket", "casual streetwear"],
+    "salvage crew": ["cargo crew workwear", "engineering coveralls", "EVA soft suit", "civilian utility wear"],
+    "research specialist": ["field research gear", "civilian utility wear", "office attire"],
+    "student": ["school uniform", "casual streetwear", "commuter jacket"],
+    "office worker": ["office attire", "commuter jacket", "civilian utility wear"],
+    "station clerk": ["service uniform", "office attire", "commuter jacket", "civilian utility wear"],
+    "teacher": ["office attire", "commuter jacket", "casual streetwear", "school uniform"],
+    "journalist": ["field research gear", "casual streetwear", "commuter jacket", "office attire"],
+    "cafe staff": ["hospitality apron", "service uniform", "casual streetwear", "civilian utility wear"],
+    "logistics clerk": ["cargo crew workwear", "office attire", "civilian utility wear"],
+    "maintenance worker": ["engineering coveralls", "cargo crew workwear", "civilian utility wear"],
+    "dock loader": ["cargo crew workwear", "civilian utility wear", "engineering coveralls"],
+}
+
 
 FACTION_PRESETS = {
     "Earth Orbital Defense Force": {
@@ -350,6 +379,23 @@ def _load_pairs(key: str, fallback: List[tuple]) -> List[tuple]:
     return _get_option_pairs(_load_options_config(), key, fallback)
 
 
+def _load_role_outfit_category_map() -> Dict[str, List[str]]:
+    raw = _load_options_config().get("role_outfit_categories")
+    if isinstance(raw, dict):
+        cleaned: Dict[str, List[str]] = {}
+        for role, categories in raw.items():
+            if not isinstance(categories, list):
+                continue
+            role_key = str(role).strip()
+            if not role_key:
+                continue
+            values = [str(cat).strip() for cat in categories if str(cat).strip()]
+            if values:
+                cleaned[role_key] = values
+        if cleaned:
+            return cleaned
+    return ROLE_OUTFIT_CATEGORY_MAP
+
 def get_faction_options(lang: str = "en") -> List[str]:
     return _make_options(_load_pairs("factions", FACTION_OPTION_PAIRS), lang)
 
@@ -364,6 +410,24 @@ def get_gender_options(lang: str = "en") -> List[str]:
 
 def get_outfit_category_options(lang: str = "en") -> List[str]:
     return _make_options(_load_pairs("outfit_categories", OUTFIT_CATEGORY_PAIRS), lang)
+
+
+def get_outfit_category_options_for_role(
+    lang: str,
+    role_label: str,
+    allow_all: bool = False,
+) -> List[str]:
+    if allow_all:
+        return get_outfit_category_options(lang)
+    role_value = _label_to_value(role_label, _make_option_map(_load_pairs("roles", ROLE_OPTION_PAIRS), lang))
+    role_map = _load_role_outfit_category_map()
+    category_values = role_map.get(role_value)
+    if not category_values:
+        return get_outfit_category_options(lang)
+    pairs = _load_pairs("outfit_categories", OUTFIT_CATEGORY_PAIRS)
+    value_to_label = _make_value_to_label_map(pairs, lang)
+    filtered = [value_to_label.get(value) for value in category_values if value_to_label.get(value)]
+    return filtered if filtered else get_outfit_category_options(lang)
 
 
 def get_silhouette_options(lang: str = "en") -> List[str]:
