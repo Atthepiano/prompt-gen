@@ -93,18 +93,25 @@ class ComponentGenerator:
 
     def _get_layout_criteria(self) -> str:
         return """**LAYOUT & FORMAT CRITERIA (CRITICAL):**
-The final image must be a clean, professional reference sheet showing exactly four views.
+The final image must be a clean reference sheet showing exactly four views.
 The views must be arranged in a precise 2x2 GRID on the canvas (Aspect Ratio 1:1).
 VIEWS MUST BE ISOLATED AND MUST NOT OVERLAP.
-Background must be PURE SOLID WHITE (#FFFFFF)."""
+Background must be PURE SOLID WHITE (#FFFFFF).
+
+**ABSOLUTELY FORBIDDEN — ZERO TEXT & ZERO ANNOTATIONS:**
+The image must contain ZERO rendered text of any kind — no letters, no words, no numbers, no labels, no titles.
+Do NOT draw any arrows, callout lines, leader lines, pointers, or annotation marks.
+Do NOT add part names, view names, component labels, dimension markings, or any other textual overlay.
+The sheet must be purely visual artwork — only the object itself, with no typographic or diagrammatic elements whatsoever."""
 
     def _get_view_protocol(self) -> str:
-        return """VIEW ANGLES PROTOCOL:
-The sheet must contain these 4 distinct views of the exact same object:
-1. Orthographic Front View
-2. Orthographic Side View
-3. Orthographic Top View
-4. Isometric Perspective View (3/4 view)"""
+        return """VIEW ANGLES PROTOCOL (render visuals only, NO text labels on any view):
+The sheet must contain these 4 distinct views of the exact same object, drawn WITHOUT any accompanying text:
+1. Front orthographic angle
+2. Side orthographic angle
+3. Top-down orthographic angle
+4. 3/4 isometric perspective angle
+Each quadrant shows only the object artwork — no view-name captions, no dimension lines, no annotations."""
 
     def _get_art_style(self) -> str:
         # Determine palette priority: Manufacturer > Custom > Tier Default
@@ -117,9 +124,10 @@ The sheet must contain these 4 distinct views of the exact same object:
 
         return f"""ART STYLE (Unified PC-98 Cel-Shading):
 Retro Japanese PC-98 computer game aesthetic fused with anime cel-shading.
-1. Bold, distinct black outlines on all edges.
-2. Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
-Color Palette: {palette}"""
+Bold, distinct black outlines on all edges.
+Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
+Color Palette: {palette}
+REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations anywhere in the image."""
 
     def _get_design_language(self) -> str:
         base_design = self.get_tier_data()['design_language']
@@ -130,6 +138,14 @@ Color Palette: {palette}"""
 
     def generate_subject_description(self) -> str:
         raise NotImplementedError
+
+    def _get_negative_prompt(self) -> str:
+        return """**NEGATIVE / FORBIDDEN ELEMENTS (do NOT generate any of the following):**
+- ANY text, letters, words, numbers, labels, titles, captions, watermarks, or signatures
+- ANY arrows, callout lines, leader lines, pointers, or annotation marks
+- ANY diagrams, dimension lines, measurement markings, or rulers
+- ANY UI elements, buttons, borders with text, or info-boxes
+The output must be a PURE ILLUSTRATION with absolutely no typographic or diagrammatic overlay."""
 
     def generate_full_prompt(self) -> str:
         tier_adj = self.get_tier_data()['adjectives'][0]
@@ -143,11 +159,13 @@ Color Palette: {palette}"""
         if self.variation and self.variation != "Standard":
             subject_name += f" ({self.variation})"
 
-        header = f"# \n\n`A strictly organized technical reference sheet in a 2x2 grid layout showing 4 views of a {subject_name}."
+        header = f"# \n\n`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS) showing 4 views of a {subject_name}."
         
         return f"""{header}
 
 {self._get_layout_criteria()}
+
+{self._get_negative_prompt()}
 
 {self.generate_subject_description()}
 
@@ -237,25 +255,20 @@ class WeaponGenerator(ComponentGenerator):
 
         features = random.sample(features_pool, min(3, len(features_pool)))
         
-        feature_list_str = ""
-        for i, f in enumerate(features, 1):
-            desc = self._get_feature_desc_prefix()
-            # Format: 1. **Feature Name:** Description.
-            feature_list_str += f"{i}. **{f.title()}:** {desc} {f} integrated with the main body.\n"
+        desc_prefix = self._get_feature_desc_prefix()
+        feature_prose = ", ".join(f"a {desc_prefix.lower()} {f}" for f in features)
 
         tier_adj = tier_data['adjectives'][0]
         
-        # Append variant description if it exists
         full_description = f"This design is a {name} with a {tier_data['adjectives'][1]} aesthetic. {design_lang}"
         if variant_desc:
-            full_description += f"\n\n> **STRUCTURAL VARIANT:** {variant_desc}"
+            full_description += f" STRUCTURAL VARIANT: {variant_desc}"
 
         return f"""SUBJECT DESCRIPTION ({tier_adj} {flavor_name}):
-**CRITICAL DESIGN NOTE:** This is a {name}. {negative}
+This is a {name}. {negative}
 
 {full_description}
-**{tier_adj} Features:**
-{feature_list_str.rstrip()}"""
+The object visually incorporates {feature_prose} — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text)."""
 
 
 class ShieldGenerator(ComponentGenerator):
@@ -283,18 +296,15 @@ class ShieldGenerator(ComponentGenerator):
             features_pool = []
 
         features = random.sample(features_pool, min(3, len(features_pool)))
-        feature_list_str = ""
-        for i, f in enumerate(features, 1):
-             feature_list_str += f"{i}. **{f.title()}:** Integrated {f}.\n"
+        feature_prose = ", ".join(f"a {f}" for f in features)
 
         tier_adj = tier_data['adjectives'][0]
 
         return f"""SUBJECT DESCRIPTION ({tier_adj} {flavor_name}):
-**CRITICAL DESIGN NOTE:** {negative}
+This is a {name}. {negative}
 
 This design is a {name} with a {tier_data['adjectives'][1]} aesthetic. {design_lang}
-**{tier_adj} Features:**
-{feature_list_str.rstrip()}"""
+The object visually incorporates {feature_prose} — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text)."""
 
 class EngineGenerator(ComponentGenerator):
     def __init__(self, tier: Tier, subcategory: str, primary_color: str = None, secondary_color: str = None, manufacturer_data: Dict = None, variation: str = None):
@@ -326,18 +336,15 @@ class EngineGenerator(ComponentGenerator):
             features_pool = []
 
         features = random.sample(features_pool, min(3, len(features_pool)))
-        feature_list_str = ""
-        for i, f in enumerate(features, 1):
-             feature_list_str += f"{i}. **{f.title()}:** Integrated {f}.\n"
+        feature_prose = ", ".join(f"a {f}" for f in features)
 
         tier_adj = tier_data['adjectives'][0]
 
         return f"""SUBJECT DESCRIPTION ({tier_adj} {flavor_name}):
-**CRITICAL DESIGN NOTE:** {negative}
+This is a {name}. {negative}
 
 This design is a {name} with a {tier_data['adjectives'][1]} aesthetic. {design_lang}
-**{tier_adj} Features:**
-{feature_list_str.rstrip()}"""
+The object visually incorporates {feature_prose} — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text)."""
 
 class CargoGenerator(ComponentGenerator):
     def __init__(self, tier: Tier, subcategory: str, primary_color: str = None, secondary_color: str = None, manufacturer_data: Dict = None, variation: str = None):
@@ -369,18 +376,15 @@ class CargoGenerator(ComponentGenerator):
             features_pool = []
 
         features = random.sample(features_pool, min(3, len(features_pool)))
-        feature_list_str = ""
-        for i, f in enumerate(features, 1):
-             feature_list_str += f"{i}. **{f.title()}:** Integrated {f}.\n"
+        feature_prose = ", ".join(f"a {f}" for f in features)
 
         tier_adj = tier_data['adjectives'][0]
 
         return f"""SUBJECT DESCRIPTION ({tier_adj} {flavor_name}):
-**CRITICAL DESIGN NOTE:** {negative}
+This is a {name}. {negative}
 
 This design is a {name} with a {tier_data['adjectives'][1]} aesthetic. {design_lang}
-**{tier_adj} Features:**
-{feature_list_str.rstrip()}"""
+The object visually incorporates {feature_prose} — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text)."""
 
 # --- Helpers for UI ---
 

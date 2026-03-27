@@ -63,12 +63,16 @@ def normalize_image_content(img, threshold=30, scale_factor=0.85):
     new_img.paste(content, (offset_x, offset_y))
     return new_img
 
-def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=None, translate_mode=False, remove_bg=False, cache_mode=True, normalize_mode=False, scale_factor=0.85):
+def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=None, translate_mode=False, remove_bg=False, cache_mode=True, normalize_mode=False, scale_factor=0.85, rename="", auto_suffix=False, image_seq=0, start_index=1, num_digits=2):
     """
     Slices an image into a grid of smaller images.
-    param csv_path: Optional path to CSV to use for naming.
-    param translate_mode: If True, translates item names from CSV to English.
-    param remove_bg: If True, attempts to remove background from each slice using rembg.
+    param rename: If non-empty, all cells use this as base name.
+    param auto_suffix: If True, adds image-level number prefix to cell numbers (for batch).
+                       e.g. rename_01_01 (image 1 cell 1), rename_02_01 (image 2 cell 1).
+                       If False, flat continuous numbering: rename_01, rename_02, ...
+    param image_seq: This image's sequence number when auto_suffix is True.
+    param start_index: Starting cell number for flat mode (batch continuity).
+    param num_digits: Minimum zero-padding width (e.g. 2 -> _01, 3 -> _001).
     Returns: (success: bool, message: str, count: int)
     """
     try:
@@ -244,22 +248,28 @@ def slice_image(image_path, grid_rows=8, grid_cols=8, output_dir=None, csv_path=
                 
                 # Determine Filename
                 idx = row * grid_cols + col
-                if idx < len(item_filenames) and item_filenames[idx].strip():
-                    # Filename is already sanitized if coming from file_en cache
-                    # But safety check doesn't hurt, or if it's from original name
-                    base_name = item_filenames[idx] # Already sanitized in logic above
-                    
-                    if not base_name: # Handle case where sanitization leaves empty string
-                        filename = f"icon_{row+1:02d}_{col+1:02d}.png"
+                cell_num = count + 1
+                
+                if rename:
+                    cell_str = str(cell_num).zfill(num_digits)
+                    if auto_suffix and image_seq > 0:
+                        img_str = str(image_seq).zfill(num_digits)
+                        filename = f"{rename}_{img_str}_{cell_str}.png"
                     else:
-                        filename = f"{base_name}.png"
-                        # Handle Duplicates
-                        counter = 2
-                        while os.path.exists(os.path.join(output_dir, filename)):
-                            filename = f"{base_name}_{counter}.png"
-                            counter += 1
+                        seq = start_index + count
+                        filename = f"{rename}_{str(seq).zfill(num_digits)}.png"
                 else:
-                    filename = f"icon_{row+1:02d}_{col+1:02d}.png"
+                    if idx < len(item_filenames) and item_filenames[idx].strip():
+                        base_name = item_filenames[idx]
+                        if not base_name:
+                            base_name = f"icon_{row+1:02d}_{col+1:02d}"
+                    else:
+                        base_name = f"icon_{row+1:02d}_{col+1:02d}"
+                    filename = f"{base_name}.png"
+                    dup_counter = 2
+                    while os.path.exists(os.path.join(output_dir, filename)):
+                        filename = f"{base_name}_{dup_counter}.png"
+                        dup_counter += 1
                 
                 save_path = os.path.join(output_dir, filename)
                 cell.save(save_path)

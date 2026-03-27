@@ -80,6 +80,15 @@ UI_TEXTS_ZH = {
     "Remove Background": "移除背景",
     "Normalize Size & Position (Trim & Center 90%)": "标准化尺寸与位置（裁切并居中 90%）",
     "SLICE INTO 64 ICONS": "切分为 64 个图标",
+    "2. Output Directory:": "2. 输出目录：",
+    "(Leave empty: each image creates its own subfolder)": "（留空：每张图自动创建子目录）",
+    "3. Naming Options:": "3. 命名选项：",
+    "Rename:": "重命名：",
+    "(overrides CSV naming if filled)": "（填写后覆盖 CSV 命名）",
+    "Batch auto suffix (e.g. weapon_01_01, weapon_02_01)": "批处理自动后缀（如 weapon_01_01、weapon_02_01）",
+    "4. Processing Options:": "4. 处理选项：",
+    "Select Folder (Batch)...": "选择文件夹（批处理）...",
+    "No image files found in the selected folder.": "所选文件夹中未找到图片文件。",
     "Image Slicer": "图片切分",
     "Asset Curation": "资产整理",
     "Configuration": "配置",
@@ -239,6 +248,12 @@ UI_TEXTS_ZH = {
     "Could not read items from CSV.": "无法从 CSV 读取物品。",
     "{count} files selected": "已选择 {count} 个文件",
     "Failed to save settings.": "保存设置失败。",
+    "Per-Tab Output Directories": "按页签设置输出目录",
+    "Spaceship Dir:": "飞船组件目录：",
+    "Item Icons Dir:": "物品图标目录：",
+    "Character Dir:": "角色目录：",
+    "Clothing Dir:": "服装目录：",
+    "Default (use global dir)": "默认（使用全局目录）",
     "Processed {success}/{total} files successfully.": "成功处理 {success}/{total} 个文件。",
     "Errors:": "错误：",
     "[Setup Required]": "【需要设置】",
@@ -264,6 +279,10 @@ class PromptApp:
         self.gemini_api_key = self.config.get("gemini_api_key", "")
         self.gemini_model = self.config.get("gemini_model", gs.DEFAULT_MODEL)
         self.image_save_dir = self.config.get("image_save_dir", "outputs")
+        self.spaceship_save_dir = self.config.get("spaceship_save_dir", "")
+        self.items_save_dir = self.config.get("items_save_dir", "")
+        self.character_save_dir = self.config.get("character_save_dir", "")
+        self.clothing_save_dir = self.config.get("clothing_save_dir", "")
         
         # Color variables
         self.primary_color = None
@@ -367,8 +386,8 @@ class PromptApp:
         self.lbl_output_header = ttk.Label(right_frame, text=self.t("Generated Output / Logs:"), font=("Arial", 12, "bold"))
         self.lbl_output_header.pack(anchor="w")
         
-        self.output_text = tk.Text(right_frame, wrap=tk.WORD, font=("Consolas", 10))
-        self.output_text.pack(fill=tk.BOTH, expand=True, pady=(5, 10))
+        self.output_text = tk.Text(right_frame, wrap=tk.WORD, font=("Consolas", 10), height=7)
+        self.output_text.pack(fill=tk.X, expand=False, pady=(5, 10))
 
         # --- Image Preview Area ---
         self.preview_header = ttk.Label(right_frame, text=self.t("Image Preview"), font=("Arial", 12, "bold"))
@@ -1320,13 +1339,31 @@ class PromptApp:
         
         frame_api.columnconfigure(1, weight=1)
         
-        # Output directory
+        # Output directory (global default)
         frame_out = ttk.LabelFrame(parent, text=self.t("Image Save Directory:"), padding=5)
         frame_out.pack(fill=tk.X, pady=(0, 10))
         
         self.save_dir_var = tk.StringVar(value=self.image_save_dir)
         ttk.Entry(frame_out, textvariable=self.save_dir_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(frame_out, text=self.t("Browse..."), command=self.select_save_dir).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Per-tab output directories
+        frame_tab_dirs = ttk.LabelFrame(parent, text=self.t("Per-Tab Output Directories"), padding=5)
+        frame_tab_dirs.pack(fill=tk.X, pady=(0, 10))
+        frame_tab_dirs.columnconfigure(1, weight=1)
+
+        tab_dir_defs = [
+            ("Spaceship Dir:", "spaceship_save_dir_var", self.spaceship_save_dir, self._select_spaceship_dir),
+            ("Item Icons Dir:", "items_save_dir_var", self.items_save_dir, self._select_items_dir),
+            ("Character Dir:", "character_save_dir_var", self.character_save_dir, self._select_character_dir),
+            ("Clothing Dir:", "clothing_save_dir_var", self.clothing_save_dir, self._select_clothing_dir),
+        ]
+        for row_idx, (label_key, var_attr, default_val, browse_cmd) in enumerate(tab_dir_defs):
+            ttk.Label(frame_tab_dirs, text=self.t(label_key)).grid(row=row_idx, column=0, sticky="w", pady=2)
+            var = tk.StringVar(value=default_val)
+            setattr(self, var_attr, var)
+            ttk.Entry(frame_tab_dirs, textvariable=var).grid(row=row_idx, column=1, sticky="ew", padx=(5, 5), pady=2)
+            ttk.Button(frame_tab_dirs, text=self.t("Browse..."), command=browse_cmd).grid(row=row_idx, column=2, pady=2)
         
         # Language
         frame_lang = ttk.LabelFrame(parent, text=self.t("UI Language:"), padding=5)
@@ -1380,61 +1417,84 @@ class PromptApp:
     def setup_slicer_tab(self):
         parent = self.tab_slicer
         
-        ttk.Label(parent, text=self.t("Image Slicer (8x8 Grid)"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
-        ttk.Label(parent, text=self.t("Splits an 8x8 grid image into 64 icons."), wraplength=380).pack(anchor="w", pady=(0, 10))
+        ttk.Label(parent, text=self.t("Image Slicer (8x8 Grid)"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 5))
         
-        # --- Image Selection ---
+        # ===== Section 1: Input =====
         ttk.Label(parent, text=self.t("1. Select Grid Image(s):"), font=("Arial", 10, "bold")).pack(anchor="w")
-        ttk.Button(parent, text=self.t("Select Image File(s)..."), command=self.select_images_for_slicer).pack(fill=tk.X, pady=(5, 5))
+        frame_img_btns = ttk.Frame(parent)
+        frame_img_btns.pack(fill=tk.X, pady=(3, 3))
+        ttk.Button(frame_img_btns, text=self.t("Select Image File(s)..."), command=self.select_images_for_slicer).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 2))
+        ttk.Button(frame_img_btns, text=self.t("Select Folder (Batch)..."), command=self.select_folder_for_slicer).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(2, 0))
         self.lbl_selected_file = ttk.Label(parent, text=self.t("No file selected"), foreground="gray", wraplength=400)
-        self.lbl_selected_file.pack(anchor="w", pady=(0, 10))
+        self.lbl_selected_file.pack(anchor="w", pady=(0, 5))
         
-        # --- Advanced Config ---
+        # ===== Section 2: Output Directory =====
+        ttk.Label(parent, text=self.t("2. Output Directory:"), font=("Arial", 10, "bold")).pack(anchor="w")
+        ttk.Label(parent, text=self.t("(Leave empty: each image creates its own subfolder)"), foreground="gray").pack(anchor="w")
+        frame_outdir = ttk.Frame(parent)
+        frame_outdir.pack(fill=tk.X, pady=(3, 5))
+        self.var_slicer_outdir = tk.StringVar(value="")
+        ttk.Entry(frame_outdir, textvariable=self.var_slicer_outdir).pack(side=tk.LEFT, padx=(0, 5), fill=tk.X, expand=True)
+        ttk.Button(frame_outdir, text=self.t("Browse..."), command=self.browse_slicer_outdir, width=8).pack(side=tk.LEFT)
+        
+        # ===== Section 3: Grid Config =====
         frame_config = ttk.LabelFrame(parent, text=self.t("Advanced Configuration"), padding=5)
-        frame_config.pack(fill=tk.X, pady=5)
-        
-        # Grid Size
+        frame_config.pack(fill=tk.X, pady=3)
         ttk.Label(frame_config, text=self.t("Grid Size (Row x Col):")).pack(side=tk.LEFT)
         self.var_grid_size = tk.StringVar(value="8")
         ttk.Entry(frame_config, textvariable=self.var_grid_size, width=5).pack(side=tk.LEFT, padx=5)
-        
-        # Scale Factor
         ttk.Label(frame_config, text=self.t("Norm Scale (0.1-1.0):")).pack(side=tk.LEFT, padx=(10, 0))
         self.var_scale_factor = tk.DoubleVar(value=0.85)
         ttk.Entry(frame_config, textvariable=self.var_scale_factor, width=5).pack(side=tk.LEFT, padx=5)
         
-        # --- Naming Options ---
-        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=5)
-        ttk.Label(parent, text=self.t("2. Smart Naming Options:"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(5,0))
+        # ===== Section 4: Naming =====
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=3)
+        ttk.Label(parent, text=self.t("3. Naming Options:"), font=("Arial", 10, "bold")).pack(anchor="w")
         
-        # Toggle Smart Naming
+        # Rename (top priority)
+        frame_rename = ttk.Frame(parent)
+        frame_rename.pack(fill=tk.X, pady=(3, 0))
+        ttk.Label(frame_rename, text=self.t("Rename:")).pack(side=tk.LEFT)
+        self.var_rename = tk.StringVar(value="")
+        ttk.Entry(frame_rename, textvariable=self.var_rename, width=18).pack(side=tk.LEFT, padx=5)
+        ttk.Label(frame_rename, text=self.t("(overrides CSV naming if filled)"), foreground="gray").pack(side=tk.LEFT)
+        
+        # Auto suffix checkbox (for batch: adds image-level number)
+        self.var_auto_suffix = tk.BooleanVar(value=True)
+        ttk.Checkbutton(parent, text=self.t("Batch auto suffix (e.g. weapon_01_01, weapon_02_01)"), variable=self.var_auto_suffix).pack(anchor="w", padx=(20, 0), pady=(1, 0))
+        
+        # CSV Smart Naming (lower priority)
         self.var_use_csv_naming = tk.BooleanVar(value=True)
         cb_naming = ttk.Checkbutton(parent, text=self.t("Use CSV for Filenames (Smart Naming)"), variable=self.var_use_csv_naming, command=self.toggle_smart_naming)
-        cb_naming.pack(anchor="w")
+        cb_naming.pack(anchor="w", pady=(3, 0))
         
-        # Toggle Filename Translation
         self.var_translate_filename = tk.BooleanVar(value=True)
         self.cb_trans_file = ttk.Checkbutton(parent, text=self.t("Auto-Translate Filenames (ZH -> EN)"), variable=self.var_translate_filename)
         self.cb_trans_file.pack(anchor="w", padx=(20, 0))
         
-        # Cache Checkbox (Mirrored)
         self.cb_cache_file = ttk.Checkbutton(parent, text=self.t("Write Translation Result into CSV (Cache)"), variable=self.var_cache_translation)
-        self.cb_cache_file.pack(anchor="w", padx=(20, 0), pady=(2,0))
+        self.cb_cache_file.pack(anchor="w", padx=(20, 0), pady=(1,0))
         
-        # Toggle Background Removal
+        frame_csv = ttk.Frame(parent)
+        frame_csv.pack(fill=tk.X, pady=(3, 0))
+        self.btn_select_csv = ttk.Button(frame_csv, text=self.t("Select CSV..."), command=self.select_csv_for_slicer, width=15)
+        self.btn_select_csv.pack(side=tk.LEFT)
+        self.lbl_selected_csv = ttk.Label(frame_csv, text=os.path.basename(self.slicer_csv_path), foreground="blue")
+        self.lbl_selected_csv.pack(side=tk.LEFT, padx=5)
+        
+        # ===== Section 5: Processing Options =====
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=3)
+        ttk.Label(parent, text=self.t("4. Processing Options:"), font=("Arial", 10, "bold")).pack(anchor="w")
+        
         self.var_remove_bg = tk.BooleanVar(value=False)
-        # Toggle Normalization
         self.var_normalize = tk.BooleanVar(value=False)
         
-        # Check rembg availability
         venv_exists = False
         import sys
         if getattr(sys, 'frozen', False):
-             # In frozen mode, assume valid if exe exists alongside
              base_dir = os.path.dirname(sys.executable)
              if os.path.exists(os.path.join(base_dir, "worker_rembg.exe")):
                  venv_exists = True
-        
         if not venv_exists:
             try:
                 workspace_dir = os.getcwd()
@@ -1447,41 +1507,19 @@ class PromptApp:
         bg_text = self.t("Remove Background")
         if not venv_exists:
             bg_text += " " + self.t("[Setup Required]")
-            
         self.cb_remove_bg = ttk.Checkbutton(parent, text=bg_text, variable=self.var_remove_bg)
-        self.cb_remove_bg.pack(anchor="w", pady=(5, 0))
-        
-        # Always enable
-        self.cb_remove_bg.config(state=tk.NORMAL) 
-        
-        if not venv_exists:
-             self.cb_remove_bg.config(state=tk.NORMAL) # Let user try it or see warning
+        self.cb_remove_bg.pack(anchor="w", pady=(3, 0))
+        self.cb_remove_bg.config(state=tk.NORMAL)
 
-        # Normalize Checkbox
-
-        # Normalize Checkbox
         self.cb_normalize = ttk.Checkbutton(parent, text=self.t("Normalize Size & Position (Trim & Center 90%)"), variable=self.var_normalize)
-        self.cb_normalize.pack(anchor="w", pady=(2, 0))
+        self.cb_normalize.pack(anchor="w", pady=(1, 0))
         
-        # CSV Selection
-        frame_csv = ttk.Frame(parent)
-        frame_csv.pack(fill=tk.X, pady=(5, 0))
-        self.btn_select_csv = ttk.Button(frame_csv, text=self.t("Select CSV..."), command=self.select_csv_for_slicer, width=15)
-        self.btn_select_csv.pack(side=tk.LEFT)
-        self.lbl_selected_csv = ttk.Label(frame_csv, text=os.path.basename(self.slicer_csv_path), foreground="blue")
-        self.lbl_selected_csv.pack(side=tk.LEFT, padx=5)
-        
-        # --- Preview & Action ---
-        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
-        
-        # Preview Area
+        # ===== Preview & Action =====
         self.lbl_preview = ttk.Label(parent, text="[Preview]", background="#eeeeee", anchor="center")
         self.lbl_preview.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        # Slice Button
-        # Point to Threaded version
         self.btn_slice = ttk.Button(parent, text=self.t("SLICE INTO 64 ICONS"), command=self.run_slicer_threaded, state=tk.DISABLED)
-        self.btn_slice.pack(fill=tk.X, pady=(10, 0), ipady=10)
+        self.btn_slice.pack(fill=tk.X, pady=(5, 0), ipady=10)
 
     def setup_curation_tab(self):
         parent = self.tab_curation
@@ -1786,6 +1824,36 @@ class PromptApp:
             except Exception as e:
                 self.lbl_preview.config(text=f"Error loading preview: {e}", image="")
     
+    def browse_slicer_outdir(self):
+        path = filedialog.askdirectory(title=self.t("Output Directory:"))
+        if path:
+            self.var_slicer_outdir.set(path)
+
+    def select_folder_for_slicer(self):
+        folder = filedialog.askdirectory(title=self.t("Select Folder (Batch)..."))
+        if folder:
+            valid_ext = ('.png', '.jpg', '.jpeg', '.webp')
+            files = sorted([
+                os.path.join(folder, f) for f in os.listdir(folder)
+                if os.path.isfile(os.path.join(folder, f)) and f.lower().endswith(valid_ext)
+            ])
+            if not files:
+                messagebox.showwarning(self.t("Error"), self.t("No image files found in the selected folder."))
+                return
+            self.slicer_files = files
+            count = len(files)
+            display = self.t("{count} files selected").format(count=count)
+            self.selected_image_path = files[0]
+            self.lbl_selected_file.config(text=display, foreground="black")
+            self.btn_slice.config(state=tk.NORMAL)
+            try:
+                img = Image.open(files[0])
+                img.thumbnail((300, 300))
+                self.preview_image = ImageTk.PhotoImage(img)
+                self.lbl_preview.config(image=self.preview_image, text="")
+            except Exception as e:
+                self.lbl_preview.config(text=f"Error loading preview: {e}", image="")
+
     def select_csv_for_slicer(self):
         filepath = filedialog.askopenfilename(title=self.t("Select Naming CSV"), filetypes=[("CSV Files", "*.csv")])
         if filepath:
@@ -1803,6 +1871,50 @@ class PromptApp:
         if path:
             self.save_dir_var.set(path)
 
+    def _select_spaceship_dir(self):
+        path = filedialog.askdirectory(title=self.t("Spaceship Dir:"))
+        if path:
+            self.spaceship_save_dir_var.set(path)
+
+    def _select_items_dir(self):
+        path = filedialog.askdirectory(title=self.t("Item Icons Dir:"))
+        if path:
+            self.items_save_dir_var.set(path)
+
+    def _select_character_dir(self):
+        path = filedialog.askdirectory(title=self.t("Character Dir:"))
+        if path:
+            self.character_save_dir_var.set(path)
+
+    def _select_clothing_dir(self):
+        path = filedialog.askdirectory(title=self.t("Clothing Dir:"))
+        if path:
+            self.clothing_save_dir_var.set(path)
+
+    def _get_current_save_dir(self) -> str:
+        """Return the save directory for the current active tab, falling back to global dir.
+        For spaceship tab, appends a subfolder named after the component category."""
+        global_dir = (self.save_dir_var.get().strip() if hasattr(self, "save_dir_var") else self.image_save_dir) or "outputs"
+        current = self.notebook.select()
+
+        if current == str(self.tab_spaceship):
+            tab_dir = (self.spaceship_save_dir_var.get().strip() if hasattr(self, "spaceship_save_dir_var") else self.spaceship_save_dir)
+            base = tab_dir or global_dir
+            cat = self.category_var.get().strip().lower() if hasattr(self, "category_var") else ""
+            if cat:
+                return os.path.join(base, cat)
+            return base
+        elif current == str(self.tab_items):
+            tab_dir = (self.items_save_dir_var.get().strip() if hasattr(self, "items_save_dir_var") else self.items_save_dir)
+            return tab_dir or global_dir
+        elif current == str(self.tab_characters):
+            tab_dir = (self.character_save_dir_var.get().strip() if hasattr(self, "character_save_dir_var") else self.character_save_dir)
+            return tab_dir or global_dir
+        elif current == str(self.tab_clothing):
+            tab_dir = (self.clothing_save_dir_var.get().strip() if hasattr(self, "clothing_save_dir_var") else self.clothing_save_dir)
+            return tab_dir or global_dir
+        return global_dir
+
     def save_settings(self):
         previous_lang = self.ui_lang
         selected_lang = "zh" if self.lang_var.get() == self.t("Chinese") else "en"
@@ -1810,6 +1922,10 @@ class PromptApp:
         self.gemini_api_key = self.api_key_var.get().strip()
         self.gemini_model = self.model_var.get().strip() or gs.DEFAULT_MODEL
         self.image_save_dir = self.save_dir_var.get().strip() or "outputs"
+        self.spaceship_save_dir = self.spaceship_save_dir_var.get().strip()
+        self.items_save_dir = self.items_save_dir_var.get().strip()
+        self.character_save_dir = self.character_save_dir_var.get().strip()
+        self.clothing_save_dir = self.clothing_save_dir_var.get().strip()
         
         self.ui_lang = selected_lang
         
@@ -1817,6 +1933,10 @@ class PromptApp:
             "gemini_api_key": self.gemini_api_key,
             "gemini_model": self.gemini_model,
             "image_save_dir": self.image_save_dir,
+            "spaceship_save_dir": self.spaceship_save_dir,
+            "items_save_dir": self.items_save_dir,
+            "character_save_dir": self.character_save_dir,
+            "clothing_save_dir": self.clothing_save_dir,
             "language": selected_lang,
         }
         
@@ -1902,7 +2022,6 @@ class PromptApp:
         csv_to_use = self.slicer_csv_path if self.var_use_csv_naming.get() else None
         do_translate = self.var_translate_filename.get()
         
-        # Get Config
         try:
             grid_size_str = self.var_grid_size.get()
             if 'x' in grid_size_str:
@@ -1914,31 +2033,50 @@ class PromptApp:
                 cols = rows
         except:
             rows = 8
-            cols = 8 # Default
+            cols = 8
             
         try:
              scale = self.var_scale_factor.get()
         except:
              scale = 0.85
         
+        rename_str = self.var_rename.get().strip()
+        auto_suffix = self.var_auto_suffix.get()
+        out_dir = self.var_slicer_outdir.get().strip() or None
+        
+        total_files = len(self.slicer_files)
+        cells_per_image = rows * cols
+        
+        if auto_suffix:
+            num_digits = max(2, len(str(cells_per_image)), len(str(total_files)))
+        else:
+            num_digits = max(2, len(str(cells_per_image * total_files)))
+        
         success_count = 0
         errors = []
-        
-        total = len(self.slicer_files)
+        current_index = 1
         
         for i, fp in enumerate(self.slicer_files):
-            self.status_var.set(f"{self.t('Processing...')} ({i+1}/{total}): {os.path.basename(fp)}...")
+            self.status_var.set(f"{self.t('Processing...')} ({i+1}/{total_files}): {os.path.basename(fp)}...")
             try:
                 success, msg, count = st.slice_image(
-                                                   image_path=fp, 
-                                                   grid_rows=rows, 
+                                                   image_path=fp,
+                                                   grid_rows=rows,
                                                    grid_cols=cols,
-                                                   csv_path=csv_to_use, 
+                                                   output_dir=out_dir,
+                                                   csv_path=csv_to_use,
                                                    translate_mode=do_translate,
                                                    remove_bg=self.var_remove_bg.get(),
                                                    cache_mode=self.var_cache_translation.get(),
                                                    normalize_mode=self.var_normalize.get(),
-                                                   scale_factor=scale)
+                                                   scale_factor=scale,
+                                                   rename=rename_str,
+                                                   auto_suffix=auto_suffix,
+                                                   image_seq=i + 1,
+                                                   start_index=current_index,
+                                                   num_digits=num_digits)
+                if not auto_suffix:
+                    current_index += count
                 if success:
                     success_count += 1
                 else:
@@ -1948,7 +2086,7 @@ class PromptApp:
                 
         self.root.after(0, lambda: self.set_ui_busy(False, self.t("Batch Complete")))
         
-        summary = self.t("Processed {success}/{total} files successfully.").format(success=success_count, total=total)
+        summary = self.t("Processed {success}/{total} files successfully.").format(success=success_count, total=total_files)
         if errors:
             summary += "\n\n" + self.t("Errors:") + "\n" + "\n".join(errors)
             self.root.after(0, lambda: messagebox.showwarning(self.t("Batch Results"), summary))
@@ -2419,20 +2557,32 @@ class PromptApp:
         )
     
     def generate_image_threaded(self):
-        prompt = self.output_text.get("1.0", tk.END).strip()
-        if not prompt:
-            messagebox.showerror(self.t("Error"), self.t("No prompt content to send."))
-            return
-        
+        current_tab = self.notebook.select()
+
+        # Auto-regenerate prompt for the active tab before reading
+        if current_tab == str(self.tab_spaceship):
+            self.generate_spaceship_prompt()
+        elif current_tab == str(self.tab_characters):
+            self.generate_character_prompt()
+        elif current_tab == str(self.tab_clothing):
+            self.generate_clothing_prompt()
+
         api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
         if not api_key:
             messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
             return
 
         reference_images = self._get_style_reference_images()
+
+        # Item icons tab: run prompt generation + image generation together in background
+        if current_tab == str(self.tab_items):
+            self.set_ui_busy(True, self.t("Generating Image..."))
+            threading.Thread(target=self._generate_item_then_image_task, args=(reference_images,), daemon=True).start()
+            return
+
         if (
             reference_images
-            and self.notebook.select() == str(self.tab_characters)
+            and current_tab == str(self.tab_characters)
             and self.style_ref_only_mode.get()
         ):
             prompt_inputs = self._collect_character_prompt_inputs()
@@ -2444,6 +2594,13 @@ class PromptApp:
                 include_mood=False,
                 include_extra_modifiers=False,
             ).strip()
+        else:
+            prompt = self.output_text.get("1.0", tk.END).strip()
+
+        if not prompt:
+            messagebox.showerror(self.t("Error"), self.t("No prompt content to send."))
+            return
+
         try:
             count = int(self.concurrent_var.get() or "1")
         except ValueError:
@@ -2454,6 +2611,28 @@ class PromptApp:
             threading.Thread(target=self._generate_image_task, args=(prompt, reference_images), daemon=True).start()
         else:
             threading.Thread(target=self._generate_images_task, args=(prompt, reference_images, count), daemon=True).start()
+
+    def _generate_item_then_image_task(self, reference_images):
+        """Background task: generate item icon prompt first, then generate image."""
+        items = ig.read_items_from_csv(self.item_csv_path)
+        if not items:
+            self.root.after(0, lambda: messagebox.showerror(self.t("Error"), self.t("Could not read items from CSV.")))
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Ready")))
+            return
+
+        do_translate = self.var_translate_prompt.get()
+        do_cache = self.var_cache_translation.get()
+        cache_path = self.item_csv_path if do_cache else None
+
+        try:
+            prompt = ig.generate_icon_grid_prompt(items, translate=do_translate, cache_path=cache_path)
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
+            self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
+            return
+
+        self.root.after(0, lambda: self.set_output(prompt))
+        self._generate_image_task(prompt, reference_images)
 
     def open_edit_dialog(self):
         if not self.pending_image_bytes:
@@ -2734,8 +2913,7 @@ class PromptApp:
     def _save_image_bytes_to_disk(self, image_bytes: bytes, prefix: str):
         if not image_bytes:
             return None
-        save_dir = self.save_dir_var.get().strip() if hasattr(self, "save_dir_var") else self.image_save_dir
-        save_dir = save_dir or "outputs"
+        save_dir = self._get_current_save_dir()
         os.makedirs(save_dir, exist_ok=True)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         ext = "png"
