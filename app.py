@@ -16,9 +16,10 @@ import threading
 import io
 import time
 from typing import List
+from paths import migrate_legacy_file
 
-APP_CONFIG_PATH = "config.json"
-HAIR_PREVIEW_CONFIG_PATH = "hair_previews.json"
+APP_CONFIG_PATH = migrate_legacy_file("config.json")
+HAIR_PREVIEW_CONFIG_PATH = migrate_legacy_file("hair_previews.json")
 
 UI_TEXTS_ZH = {
     "Spaceship Prompt Generator": "飞船提示词生成器",
@@ -3044,26 +3045,30 @@ class PromptApp:
         messagebox.showinfo(self.t("Copied"), self.t("Prompt copied to clipboard!"))
 
 if __name__ == "__main__":
+    from core.logging_setup import init_app_logging, get_logger
+    log_path = init_app_logging()
+    log = get_logger("app")
+    log.info("Starting Application... log file: %s", log_path)
     try:
-        print("Starting Application...")
         root = tk.Tk()
         try:
             root.tk.call('source', 'azure.tcl')
-        except:
+        except Exception:
             pass
-            
-        print("Initializing App Logic...")
+
+        log.info("Initializing App Logic")
         app = PromptApp(root)
-        print("Entering Main Loop...")
+        log.info("Entering Main Loop")
         root.mainloop()
     except Exception as e:
+        log.exception("CRITICAL ERROR during startup or main loop")
+        from paths import user_data_path
         import traceback
         err_msg = traceback.format_exc()
-        print(f"CRITICAL ERROR: {err_msg}")
-        with open("crash.log", "w") as f:
+        with open(user_data_path("crash.log"), "w") as f:
             f.write(err_msg)
         try:
             messagebox.showerror("Critical Error", f"Application Crashing:\n{e}\n\nSee crash.log for details.")
-        except:
+        except Exception:
             pass
 
