@@ -1,106 +1,146 @@
 # 
 
-`A strictly organized technical reference sheet in a 2x2 grid layout showing 4 views of a Titan Heavy Industries Advanced Beam Weapon (Twin-Linked (Rapid)).
+`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS) showing 4 views of a SPACESHIP-MOUNTED Titan Heavy Industries Advanced Beam Ship Weapon Turret (Twin-Linked (Rapid)).
 
 **LAYOUT & FORMAT CRITERIA (CRITICAL):**
-The final image must be a clean, professional reference sheet showing exactly four views.
+The final image must be a clean reference sheet showing exactly four views.
 The views must be arranged in a precise 2x2 GRID on the canvas (Aspect Ratio 1:1).
 VIEWS MUST BE ISOLATED AND MUST NOT OVERLAP.
 Background must be PURE SOLID WHITE (#FFFFFF).
 
-SUBJECT DESCRIPTION (Advanced Directed Energy Weapon):
-**CRITICAL DESIGN NOTE:** This is a Beam Emitter. NO projectile barrels. NO ammo boxes.
+**ABSOLUTELY FORBIDDEN — ZERO TEXT & ZERO ANNOTATIONS:**
+The image must contain ZERO rendered text of any kind — no letters, no words, no numbers, no labels, no titles.
+Do NOT draw any arrows, callout lines, leader lines, pointers, or annotation marks.
+Do NOT add part names, view names, component labels, dimension markings, or any other textual overlay.
+The sheet must be purely visual artwork — only the object itself, with no typographic or diagrammatic elements whatsoever.
 
-This design is a Beam Emitter with a High-Tech aesthetic. Soviet heavy industry aesthetic, bulky cast iron grey structures, red warning paint, thick visible rivets, brutalist silhouette. Blended with Sleek armor, active energy lines, aerodynamic cowlings, hexagonal patterns.
+**NEGATIVE / FORBIDDEN ELEMENTS (do NOT generate any of the following):**
+- ANY text, letters, words, numbers, labels, titles, captions, watermarks, or signatures
+- ANY arrows, callout lines, leader lines, pointers, or annotation marks
+- ANY diagrams, dimension lines, measurement markings, or rulers
+- ANY UI elements, buttons, borders with text, or info-boxes
+The output must be a PURE ILLUSTRATION with absolutely no typographic or diagrammatic overlay.
 
-> **STRUCTURAL VARIANT:** This design features TWO parallel weapon barrels/emitters mounted side-by-side (Twin-Linked configuration).
-**Advanced Features:**
-1. **Power Cables:** Advanced power cables integrated with the main body.
-2. **Optical Sensors:** Advanced optical sensors integrated with the main body.
-3. **Capacitor Banks:** Advanced capacitor banks integrated with the main body.
+**WEAPON-SPECIFIC FORBIDDEN ELEMENTS:**
+- NO pistol grip, trigger, trigger guard, stock, buttstock, magazine, carry handle, or any ergonomic feature sized for a human hand
+- The base/mount of this object is a mechanical hull bracket or rotation ring — NOT a handle to be held
 
-VIEW ANGLES PROTOCOL:
-The sheet must contain these 4 distinct views of the exact same object:
-1. Orthographic Front View
-2. Orthographic Side View
-3. Orthographic Top View
-4. Isometric Perspective View (3/4 view)
+SUBJECT DESCRIPTION (Advanced Shipboard Directed Energy Cannon):
+This is a Beam Weapon Module — a weapon system fixed to a spaceship's exterior hull via a mechanical mount. NO solid projectile barrels. NO ammo boxes.
+
+Design language: High-Tech aesthetic. Surface treatment: thick cast iron plating with visible weld seams and rows of large bolt heads. Details: exposed hydraulic lines, heavy rectangular panel joins, red warning paint stripes on moving parts. Finish: raw unpainted metal with oil stains and wear marks. Blended with Sleek armor, active energy lines, aerodynamic cowlings, hexagonal patterns. STRUCTURAL VARIANT: This design features TWO parallel weapon barrels/emitters mounted side-by-side (Twin-Linked configuration).
+The object visually incorporates a advanced high-voltage power conduit bundles, a advanced large focusing lens assembly, a advanced thermal radiator panels — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text).
+
+VIEW ANGLES PROTOCOL (render visuals only, NO text labels on any view):
+The sheet must contain these 4 distinct views of the exact same object, drawn WITHOUT any accompanying text:
+1. Front orthographic angle
+2. Side orthographic angle
+3. Top-down orthographic angle
+4. 3/4 isometric perspective angle
+Each quadrant shows only the object artwork — no view-name captions, no dimension lines, no annotations.
 
 ART STYLE (Unified PC-98 Cel-Shading):
 Retro Japanese PC-98 computer game aesthetic fused with anime cel-shading.
-1. Bold, distinct black outlines on all edges.
-2. Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
-Color Palette: Cast Iron Grey, Red Warning Paint, Oil Black`
+Bold, distinct black outlines on all edges.
+Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
+Color Palette: Cast Iron Grey, Red Warning Paint, Oil Black
+REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations anywhere in the image.`
 
 ----------------------------------------
 
 # 
 
-`A strictly organized technical reference sheet in a 2x2 grid layout showing 4 views of a Legendary Kinetic Weapon (Gatling (Rotary)).
+`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS) showing 4 views of a SPACESHIP-MOUNTED Legendary Kinetic Ship Weapon Turret (Gatling (Rotary)).
 
 **LAYOUT & FORMAT CRITERIA (CRITICAL):**
-The final image must be a clean, professional reference sheet showing exactly four views.
+The final image must be a clean reference sheet showing exactly four views.
 The views must be arranged in a precise 2x2 GRID on the canvas (Aspect Ratio 1:1).
 VIEWS MUST BE ISOLATED AND MUST NOT OVERLAP.
 Background must be PURE SOLID WHITE (#FFFFFF).
 
-SUBJECT DESCRIPTION (Legendary Ballistic Weapon System):
-**CRITICAL DESIGN NOTE:** This is a Kinetic Cannon. NO laser beams. NO energy crystals.
+**ABSOLUTELY FORBIDDEN — ZERO TEXT & ZERO ANNOTATIONS:**
+The image must contain ZERO rendered text of any kind — no letters, no words, no numbers, no labels, no titles.
+Do NOT draw any arrows, callout lines, leader lines, pointers, or annotation marks.
+Do NOT add part names, view names, component labels, dimension markings, or any other textual overlay.
+The sheet must be purely visual artwork — only the object itself, with no typographic or diagrammatic elements whatsoever.
 
-This design is a Kinetic Cannon with a Precursor aesthetic. Seamless matte-black ceramic, floating geometric shapes, defying gravity, zero visible seams, pulsing silent energy.
+**NEGATIVE / FORBIDDEN ELEMENTS (do NOT generate any of the following):**
+- ANY text, letters, words, numbers, labels, titles, captions, watermarks, or signatures
+- ANY arrows, callout lines, leader lines, pointers, or annotation marks
+- ANY diagrams, dimension lines, measurement markings, or rulers
+- ANY UI elements, buttons, borders with text, or info-boxes
+The output must be a PURE ILLUSTRATION with absolutely no typographic or diagrammatic overlay.
 
-> **STRUCTURAL VARIANT:** This design features a rotary multi-barrel gatling mechanism. Massive ammo drum and cooling jackets.
-**Legendary Features:**
-1. **Cooling Motors:** Monolithic cooling motors integrated with the main body.
-2. **Massive Ammo Feeder:** Monolithic massive ammo feeder integrated with the main body.
-3. **Rotary Barrel Assembly:** Monolithic rotary barrel assembly integrated with the main body.
+**WEAPON-SPECIFIC FORBIDDEN ELEMENTS:**
+- NO pistol grip, trigger, trigger guard, stock, buttstock, magazine, carry handle, or any ergonomic feature sized for a human hand
+- The base/mount of this object is a mechanical hull bracket or rotation ring — NOT a handle to be held
 
-VIEW ANGLES PROTOCOL:
-The sheet must contain these 4 distinct views of the exact same object:
-1. Orthographic Front View
-2. Orthographic Side View
-3. Orthographic Top View
-4. Isometric Perspective View (3/4 view)
+SUBJECT DESCRIPTION (Legendary Shipboard Ballistic Cannon):
+This is a Kinetic Weapon Module — a weapon system fixed to a spaceship's exterior hull via a mechanical mount. NO laser beams. NO energy crystals.
+
+Design language: Precursor aesthetic. Seamless matte-black ceramic, floating geometric shapes, defying gravity, zero visible seams, pulsing silent energy. STRUCTURAL VARIANT: This design features a rotary multi-barrel gatling mechanism. Massive ammo drum and cooling jackets.
+The object visually incorporates a monolithic spinning rotary barrel cluster, a monolithic centrifugal barrel rotation mechanism, a monolithic massive belt-fed ammo drum housing — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text).
+
+VIEW ANGLES PROTOCOL (render visuals only, NO text labels on any view):
+The sheet must contain these 4 distinct views of the exact same object, drawn WITHOUT any accompanying text:
+1. Front orthographic angle
+2. Side orthographic angle
+3. Top-down orthographic angle
+4. 3/4 isometric perspective angle
+Each quadrant shows only the object artwork — no view-name captions, no dimension lines, no annotations.
 
 ART STYLE (Unified PC-98 Cel-Shading):
 Retro Japanese PC-98 computer game aesthetic fused with anime cel-shading.
-1. Bold, distinct black outlines on all edges.
-2. Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
-Color Palette: #222222 main body, #00FFFF energy/glow, dark mechanical details.`
+Bold, distinct black outlines on all edges.
+Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
+Color Palette: #222222 main body, #00FFFF energy/glow, dark mechanical details.
+REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations anywhere in the image.`
 
 ----------------------------------------
 
 # 
 
-`A strictly organized technical reference sheet in a 2x2 grid layout showing 4 views of a Elite Warp Engine.
+`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS) showing 4 views of a Elite Warp Engine.
 
 **LAYOUT & FORMAT CRITERIA (CRITICAL):**
-The final image must be a clean, professional reference sheet showing exactly four views.
+The final image must be a clean reference sheet showing exactly four views.
 The views must be arranged in a precise 2x2 GRID on the canvas (Aspect Ratio 1:1).
 VIEWS MUST BE ISOLATED AND MUST NOT OVERLAP.
 Background must be PURE SOLID WHITE (#FFFFFF).
+
+**ABSOLUTELY FORBIDDEN — ZERO TEXT & ZERO ANNOTATIONS:**
+The image must contain ZERO rendered text of any kind — no letters, no words, no numbers, no labels, no titles.
+Do NOT draw any arrows, callout lines, leader lines, pointers, or annotation marks.
+Do NOT add part names, view names, component labels, dimension markings, or any other textual overlay.
+The sheet must be purely visual artwork — only the object itself, with no typographic or diagrammatic elements whatsoever.
+
+**NEGATIVE / FORBIDDEN ELEMENTS (do NOT generate any of the following):**
+- ANY text, letters, words, numbers, labels, titles, captions, watermarks, or signatures
+- ANY arrows, callout lines, leader lines, pointers, or annotation marks
+- ANY diagrams, dimension lines, measurement markings, or rulers
+- ANY UI elements, buttons, borders with text, or info-boxes
+The output must be a PURE ILLUSTRATION with absolutely no typographic or diagrammatic overlay.
 
 SUBJECT DESCRIPTION (Elite FTL Engine):
-**CRITICAL DESIGN NOTE:** NO exhaust output.
+This is a Warp Drive. NO exhaust output.
 
 This design is a Warp Drive with a Experimental aesthetic. Unstable energy signatures, floating components, forbidden geometry, exposed power cores.
-**Elite Features:**
-1. **Singularity Containment:** Integrated singularity containment.
-2. **Field Coils:** Integrated field coils.
-3. **Gravity Torus:** Integrated gravity torus.
+The object visually incorporates a gravity torus, a singularity containment, a field coils — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text).
 
-VIEW ANGLES PROTOCOL:
-The sheet must contain these 4 distinct views of the exact same object:
-1. Orthographic Front View
-2. Orthographic Side View
-3. Orthographic Top View
-4. Isometric Perspective View (3/4 view)
+VIEW ANGLES PROTOCOL (render visuals only, NO text labels on any view):
+The sheet must contain these 4 distinct views of the exact same object, drawn WITHOUT any accompanying text:
+1. Front orthographic angle
+2. Side orthographic angle
+3. Top-down orthographic angle
+4. 3/4 isometric perspective angle
+Each quadrant shows only the object artwork — no view-name captions, no dimension lines, no annotations.
 
 ART STYLE (Unified PC-98 Cel-Shading):
 Retro Japanese PC-98 computer game aesthetic fused with anime cel-shading.
-1. Bold, distinct black outlines on all edges.
-2. Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
-Color Palette: Void purple, unstable crimson, quantum white details.`
+Bold, distinct black outlines on all edges.
+Hard-edged block shading across ALL views showing weight and depth. High contrast retro anime look.
+Color Palette: Void purple, unstable crimson, quantum white details.
+REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations anywhere in the image.`
 
 ----------------------------------------
 

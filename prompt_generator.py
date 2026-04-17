@@ -147,6 +147,11 @@ REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations anywhere in t
 - ANY UI elements, buttons, borders with text, or info-boxes
 The output must be a PURE ILLUSTRATION with absolutely no typographic or diagrammatic overlay."""
 
+    def _get_weapon_negative_prompt(self) -> str:
+        return """**WEAPON-SPECIFIC FORBIDDEN ELEMENTS:**
+- NO pistol grip, trigger, trigger guard, stock, buttstock, magazine, carry handle, or any ergonomic feature sized for a human hand
+- The base/mount of this object is a mechanical hull bracket or rotation ring — NOT a handle to be held"""
+
     def generate_full_prompt(self) -> str:
         tier_adj = self.get_tier_data()['adjectives'][0]
         
@@ -188,6 +193,32 @@ class WeaponGenerator(ComponentGenerator):
     def __init__(self, tier: Tier, subcategory: str, primary_color: str = None, secondary_color: str = None, manufacturer_data: Dict = None, variation: str = None):
         super().__init__(tier, ComponentType.WEAPON, subcategory, primary_color, secondary_color, manufacturer_data, variation)
 
+    def generate_full_prompt(self) -> str:
+        tier_adj = self.get_tier_data()['adjectives'][0]
+        
+        subject_name = f"{tier_adj} {self.subcategory} Ship Weapon Turret"
+        if self.manufacturer_data:
+            subject_name = f"{self.manufacturer_data['name']} {subject_name}"
+        if self.variation and self.variation != "Standard":
+            subject_name += f" ({self.variation})"
+
+        header = f"# \n\n`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS) showing 4 views of a SPACESHIP-MOUNTED {subject_name}."
+        
+        return f"""{header}
+
+{self._get_layout_criteria()}
+
+{self._get_negative_prompt()}
+
+{self._get_weapon_negative_prompt()}
+
+{self.generate_subject_description()}
+
+{self._get_view_protocol()}
+
+{self._get_art_style()}`
+"""
+
     def _get_variant_desc(self) -> str:
         if not self.variation or "Standard" in self.variation:
             return ""
@@ -218,37 +249,43 @@ class WeaponGenerator(ComponentGenerator):
         tier_data = self.get_tier_data()
         design_lang = self._get_design_language()
         variant_desc = self._get_variant_desc()
-        
+
         # Subcategory specifics
         if self.subcategory == "Kinetic":
-            name = "Kinetic Cannon"
-            flavor_name = "Ballistic Weapon System"
+            name = "Kinetic Weapon Module"
+            flavor_name = "Shipboard Ballistic Cannon"
             negative = "NO laser beams. NO energy crystals."
-            features_pool = ["rifled barrel", "ammo box mechanism", "recoil hydraulics", "shell casing ejection port", "muzzle brake"]
-            if "Gatling" in self.variation: features_pool = ["rotary barrel assembly", "massive ammo feeder", "cooling motors"]
-            if "Twin-Linked" in self.variation: features_pool = ["twin parallel barrels", "synchronized recoil system", "dual ammo feed"]
+            features_pool = ["large-bore rifled barrel with muzzle brake", "automated ammo feed mechanism", "hydraulic recoil buffer assembly", "shell casing ejection chute", "barrel cooling jacket with ventilation slots", "turret rotation ring mount"]
+            if self.variation and "Gatling" in self.variation:
+                features_pool = ["spinning rotary barrel cluster", "massive belt-fed ammo drum housing", "electric motor cooling shrouds", "centrifugal barrel rotation mechanism"]
+            elif self.variation and "Twin-Linked" in self.variation:
+                features_pool = ["twin parallel oversized barrels", "synchronized hydraulic recoil frame", "dual-path ammo feed housing"]
 
         elif self.subcategory == "Beam":
-            name = "Beam Emitter"
-            flavor_name = "Directed Energy Weapon"
-            negative = "NO projectile barrels. NO ammo boxes."
-            features_pool = ["focusing lens", "heat sink fins", "power cables", "capacitor banks", "optical sensors"]
-            if "Prism" in self.variation: features_pool = ["prism array honeycomb", "multi-phase capacitors", "refraction crystals"]
+            name = "Beam Weapon Module"
+            flavor_name = "Shipboard Directed Energy Cannon"
+            negative = "NO solid projectile barrels. NO ammo boxes."
+            features_pool = ["large focusing lens assembly", "heat sink fin array", "high-voltage power conduit bundles", "capacitor bank housing", "thermal radiator panels", "turret rotation ring mount"]
+            if self.variation and "Prism" in self.variation:
+                features_pool = ["honeycomb prism array emitter face", "multi-phase capacitor bank", "refraction crystal housing cluster"]
 
         elif self.subcategory == "Missile":
-            name = "Missile Launcher"
-            flavor_name = "Ordnance Delivery System"
+            name = "Missile Weapon Module"
+            flavor_name = "Shipboard Ordnance Launcher"
             negative = "NO gun barrels. NO continuous beams."
-            features_pool = ["launch tubes", "radar dome", "loading mechanism", "blast shield", "targeting array"]
-            if "VLS" in self.variation: features_pool = ["VLS cello doors", "blast deflection channels", "top-loading hatches"]
+            features_pool = ["missile launch tube cluster", "targeting radar dome", "automated loading mechanism housing", "blast deflection shield plate", "targeting sensor array", "hull attachment mounting bracket"]
+            if self.variation and "VLS" in self.variation:
+                features_pool = ["flush vertical launch silo grid with armored hatch doors", "blast deflection channel trenches", "top-loading automated hatch array"]
+            elif self.variation and "Torpedo" in self.variation:
+                features_pool = ["single oversized large-bore torpedo launch tube", "blast reinforced tube housing", "torpedo loading rail mechanism"]
 
         elif self.subcategory == "MechaHangar":
-            name = "Mecha Hangar Bay"
+            name = "Mecha Hangar Bay Module"
             flavor_name = "Mobile Suit Deployment Bay"
-            negative = "NO guns. This is a HANGAR, not a weapon."
-            features_pool = ["deployment door", "maintenance arm", "fueling hose", "warning lights", "catapult rail"]
+            negative = "NO guns. NO weapons. This is a HANGAR MODULE, not a weapon."
+            features_pool = ["large armored deployment bay door", "articulated maintenance arm", "fuel supply hose coupling", "warning light strips", "electromagnetic catapult launch rail"]
         else:
-            name = "Unknown Weapon"
+            name = "Shipboard Weapon Module"
             flavor_name = "Weapon"
             negative = ""
             features_pool = []
@@ -259,13 +296,16 @@ class WeaponGenerator(ComponentGenerator):
         feature_prose = ", ".join(f"a {desc_prefix.lower()} {f}" for f in features)
 
         tier_adj = tier_data['adjectives'][0]
+
+        # Mounting context — stated once, concisely
+        mounting_line = f"This is a {name} — a weapon system fixed to a spaceship's exterior hull via a mechanical mount. {negative}"
         
-        full_description = f"This design is a {name} with a {tier_data['adjectives'][1]} aesthetic. {design_lang}"
+        full_description = f"Design language: {tier_data['adjectives'][1]} aesthetic. {design_lang}"
         if variant_desc:
             full_description += f" STRUCTURAL VARIANT: {variant_desc}"
 
         return f"""SUBJECT DESCRIPTION ({tier_adj} {flavor_name}):
-This is a {name}. {negative}
+{mounting_line}
 
 {full_description}
 The object visually incorporates {feature_prose} — all integrated into the main body as visible design elements (draw these as part of the geometry, do NOT label them with text)."""

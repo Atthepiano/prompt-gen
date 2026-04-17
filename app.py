@@ -74,6 +74,9 @@ UI_TEXTS_ZH = {
     "Advanced Configuration": "高级配置",
     "Grid Size (Row x Col):": "网格尺寸（行 x 列）：",
     "Norm Scale (0.1-1.0):": "标准化比例（0.1-1.0）：",
+    "Smart Crop (auto-detect grid)": "智能裁剪（自动检测网格）",
+    "(overrides row/col input)": "（覆盖行列数设置）",
+    "Detecting grid...": "正在检测网格...",
     "2. Smart Naming Options:": "2. 智能命名选项：",
     "Use CSV for Filenames (Smart Naming)": "使用 CSV 生成文件名（智能命名）",
     "Auto-Translate Filenames (ZH -> EN)": "自动翻译文件名（中 -> 英）",
@@ -1440,12 +1443,30 @@ class PromptApp:
         # ===== Section 3: Grid Config =====
         frame_config = ttk.LabelFrame(parent, text=self.t("Advanced Configuration"), padding=5)
         frame_config.pack(fill=tk.X, pady=3)
-        ttk.Label(frame_config, text=self.t("Grid Size (Row x Col):")).pack(side=tk.LEFT)
+
+        # Row 1: Grid size + norm scale
+        frame_config_row1 = ttk.Frame(frame_config)
+        frame_config_row1.pack(fill=tk.X)
+        self.lbl_grid_size = ttk.Label(frame_config_row1, text=self.t("Grid Size (Row x Col):"))
+        self.lbl_grid_size.pack(side=tk.LEFT)
         self.var_grid_size = tk.StringVar(value="8")
-        ttk.Entry(frame_config, textvariable=self.var_grid_size, width=5).pack(side=tk.LEFT, padx=5)
-        ttk.Label(frame_config, text=self.t("Norm Scale (0.1-1.0):")).pack(side=tk.LEFT, padx=(10, 0))
+        self.entry_grid_size = ttk.Entry(frame_config_row1, textvariable=self.var_grid_size, width=5)
+        self.entry_grid_size.pack(side=tk.LEFT, padx=5)
+        ttk.Label(frame_config_row1, text=self.t("Norm Scale (0.1-1.0):")).pack(side=tk.LEFT, padx=(10, 0))
         self.var_scale_factor = tk.DoubleVar(value=0.85)
-        ttk.Entry(frame_config, textvariable=self.var_scale_factor, width=5).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(frame_config_row1, textvariable=self.var_scale_factor, width=5).pack(side=tk.LEFT, padx=5)
+
+        # Row 2: Smart crop toggle
+        frame_config_row2 = ttk.Frame(frame_config)
+        frame_config_row2.pack(fill=tk.X, pady=(4, 0))
+        self.var_smart_crop = tk.BooleanVar(value=False)
+        self.cb_smart_crop = ttk.Checkbutton(
+            frame_config_row2,
+            text=self.t("Smart Crop (auto-detect grid)") + "  " + self.t("(overrides row/col input)"),
+            variable=self.var_smart_crop,
+            command=self._toggle_smart_crop
+        )
+        self.cb_smart_crop.pack(side=tk.LEFT)
         
         # ===== Section 4: Naming =====
         ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=3)
@@ -1520,6 +1541,15 @@ class PromptApp:
         
         self.btn_slice = ttk.Button(parent, text=self.t("SLICE INTO 64 ICONS"), command=self.run_slicer_threaded, state=tk.DISABLED)
         self.btn_slice.pack(fill=tk.X, pady=(5, 0), ipady=10)
+
+    def _toggle_smart_crop(self):
+        """Enable/disable the manual grid size entry based on smart crop checkbox."""
+        if self.var_smart_crop.get():
+            self.entry_grid_size.config(state=tk.DISABLED)
+            self.lbl_grid_size.config(foreground="gray")
+        else:
+            self.entry_grid_size.config(state=tk.NORMAL)
+            self.lbl_grid_size.config(foreground="")
 
     def setup_curation_tab(self):
         parent = self.tab_curation
@@ -2045,19 +2075,31 @@ class PromptApp:
         out_dir = self.var_slicer_outdir.get().strip() or None
         
         total_files = len(self.slicer_files)
+        use_smart_crop = self.var_smart_crop.get()
         cells_per_image = rows * cols
-        
+
         if auto_suffix:
             num_digits = max(2, len(str(cells_per_image)), len(str(total_files)))
         else:
             num_digits = max(2, len(str(cells_per_image * total_files)))
-        
+
         success_count = 0
         errors = []
         current_index = 1
-        
+
         for i, fp in enumerate(self.slicer_files):
             self.status_var.set(f"{self.t('Processing...')} ({i+1}/{total_files}): {os.path.basename(fp)}...")
+
+            # Smart crop: detect grid boundaries automatically
+            img_row_cuts = None
+            img_col_cuts = None
+            if use_smart_crop:
+                try:
+                    self.status_var.set(f"{self.t('Detecting grid...')} ({i+1}/{total_files}): {os.path.basename(fp)}...")
+                    img_row_cuts, img_col_cuts = st.detect_grid(fp)
+                except Exception as e:
+                    print(f"Smart crop detection failed for {os.path.basename(fp)}: {e}, falling back to manual grid")
+
             try:
                 success, msg, count = st.slice_image(
                                                    image_path=fp,
@@ -2074,7 +2116,9 @@ class PromptApp:
                                                    auto_suffix=auto_suffix,
                                                    image_seq=i + 1,
                                                    start_index=current_index,
-                                                   num_digits=num_digits)
+                                                   num_digits=num_digits,
+                                                   row_cuts=img_row_cuts,
+                                                   col_cuts=img_col_cuts)
                 if not auto_suffix:
                     current_index += count
                 if success:

@@ -3,35 +3,35 @@
         "id": "titan",
         "name": "Titan Heavy Industries",
         "description": "Soviet Heavy Industry, Cast Iron, Red Warning.",
-        "design_language": "Soviet heavy industry aesthetic, bulky cast iron grey structures, red warning paint, thick visible rivets, brutalist silhouette.",
+        "design_language": "Surface treatment: thick cast iron plating with visible weld seams and rows of large bolt heads. Details: exposed hydraulic lines, heavy rectangular panel joins, red warning paint stripes on moving parts. Finish: raw unpainted metal with oil stains and wear marks.",
         "color_palette": "Cast Iron Grey, Red Warning Paint, Oil Black"
     },
     {
         "id": "vector",
         "name": "Vector Dynamics",
         "description": "Modern Military, Matte White, Engineering Blue.",
-        "design_language": "Modern tactical military aesthetic, sleek matte white finish, engineering blue glowing elements, modular rail systems, clean lines.",
+        "design_language": "Surface treatment: flush matte panels with precision-cut edges and minimal visible fasteners. Details: integrated rail slots, engineering blue LED strip accents along seams, modular attachment points. Finish: clean matte white with tactical grey secondary panels.",
         "color_palette": "Matte White, Engineering Blue Glow, Tactical Grey"
     },
     {
         "id": "helios",
         "name": "Helios Optronics",
         "description": "Aristocratic Tech, Ceramic White, Gold, Purple.",
-        "design_language": "Aristocratic high-tech aesthetic, pristine ceramic white surfaces, elegant gold trim, royal purple energy signatures, artistic curves.",
+        "design_language": "Surface treatment: smooth ceramic-finish panels with soft beveled edges and decorative gold inlay trim lines. Details: elegant symmetrical filigree grooves, royal purple energy glow on emitter surfaces, ornate housing covers. Finish: pristine polished white with gold accent borders.",
         "color_palette": "Ceramic White, Gold Trim, Royal Purple"
     },
     {
         "id": "vulture",
         "name": "Vulture Works",
         "description": "Wasteland Junk, Rust, Graffiti, Asymmetrical.",
-        "design_language": "Scavenger wasteland aesthetic, rusted asymmetrical metal plating, graffiti markings, exposed wiring, improvised welds.",
+        "design_language": "Surface treatment: mismatched salvaged plating with visible rust patches, rough welds, and patched holes. Details: exposed wire bundles strapped with cable ties, hand-painted hazard markings and graffiti tags, jury-rigged add-on components bolted on top. Finish: peeling paint over corroded metal.",
         "color_palette": "Rusted Metal, Hazard Orange, Graffiti Paint"
     },
     {
         "id": "aether",
         "name": "Aether Science",
         "description": "Ancient Relic, Black Geometry, Red/Black Particles.",
-        "design_language": "Ancient relic aesthetic, monolithic black geometry, red/black particle effects, seamless screwless construction, defying physics.",
+        "design_language": "Surface treatment: perfectly smooth screwless panels with zero visible joints — surfaces appear grown rather than assembled. Details: faint geometric engravings that pulse with dim red-black energy, no mechanical protrusions, all functional ports flush with the surface. Finish: deep matte black with a faint inner luminescence.",
         "color_palette": "Monolithic Black, Red/Black Particles, Void Darkness"
     }
 ]
