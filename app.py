@@ -29,6 +29,25 @@ UI_TEXTS_ZH = {
     "Clothing Presets": "服装预设",
     "Image Slicer": "图片切分",
     "Asset Curation": "资产整理",
+    "Asset Library": "作品库",
+    "Type:": "类型：",
+    "Min ★:": "最低评级：",
+    "Search:": "搜索：",
+    "Refresh": "刷新",
+    "Time": "时间",
+    "Type": "类型",
+    "Prompt / Notes": "Prompt / 备注",
+    "Details": "详细信息",
+    "Tags:": "标签：",
+    "Copy Prompt": "复制 Prompt",
+    "Open Folder": "打开所在目录",
+    "Edit with Gemini": "用 Gemini 改图",
+    "Delete Entry": "删除记录",
+    "{n} entries": "共 {n} 条",
+    "File no longer exists.": "文件已不存在。",
+    "Confirm": "确认",
+    "Delete this library entry? (image file is kept on disk)": "删除此条记录？（磁盘上的图片文件保留）",
+    "Info": "提示",
     "Settings": "设置",
     "Generated Output / Logs:": "生成输出 / 日志：",
     "Copy to Clipboard": "复制到剪贴板",
@@ -358,7 +377,11 @@ class PromptApp:
         self.tab_curation = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_curation, text=self.t("Asset Curation"))
 
-        # Tab 7: Settings
+        # Tab 7: Asset Library
+        self.tab_library = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_library, text=self.t("Asset Library"))
+
+        # Tab 8: Settings
         self.tab_settings = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_settings, text=self.t("Settings"))
 
@@ -383,7 +406,10 @@ class PromptApp:
         self.current_curation_index = 0
         self.setup_curation_tab()
         
-        # --- Setup Tab 7: Settings ---
+        # --- Setup Tab 7: Asset Library ---
+        self.setup_library_tab()
+
+        # --- Setup Tab 8: Settings ---
         self.setup_settings_tab()
 
         # --- Output Area (Right) ---
@@ -440,6 +466,7 @@ class PromptApp:
         self.pending_image_bytes = None
         self.pending_image_mime = None
         self.pending_image_prefix = "gemini"
+        self.pending_batch_id = None
         self.preview_photo = None
         self.pending_images = []
         self.preview_thumbnails = []
@@ -1319,9 +1346,304 @@ class PromptApp:
             self.root.after(0, lambda: messagebox.showerror(self.t("Error"), str(e)))
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
         
+    # ------------------------------------------------------------------
+    # Asset Library Tab
+    # ------------------------------------------------------------------
+    def setup_library_tab(self):
+        from core import library as _lib
+
+        parent = self.tab_library
+        self._library_module = _lib
+        self._library_selected_id = None
+        self._library_preview_photo = None  # 防止 PhotoImage 被 GC
+
+        # ---- 顶部过滤工具条 ----
+        toolbar = ttk.Frame(parent)
+        toolbar.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(toolbar, text=self.t("Type:")).pack(side=tk.LEFT)
+        self.lib_type_var = tk.StringVar(value="(all)")
+        type_options = ["(all)", "spaceship", "items", "character", "clothing", "slicer", "curation", "gemini", "clothing_swap"]
+        ttk.Combobox(toolbar, textvariable=self.lib_type_var, values=type_options,
+                     state="readonly", width=14).pack(side=tk.LEFT, padx=(4, 12))
+
+        ttk.Label(toolbar, text=self.t("Min ★:")).pack(side=tk.LEFT)
+        self.lib_min_rating_var = tk.IntVar(value=0)
+        ttk.Spinbox(toolbar, from_=0, to=5, textvariable=self.lib_min_rating_var,
+                    width=4).pack(side=tk.LEFT, padx=(4, 12))
+
+        ttk.Label(toolbar, text=self.t("Search:")).pack(side=tk.LEFT)
+        self.lib_keyword_var = tk.StringVar()
+        kw_entry = ttk.Entry(toolbar, textvariable=self.lib_keyword_var, width=24)
+        kw_entry.pack(side=tk.LEFT, padx=(4, 8))
+        kw_entry.bind("<Return>", lambda e: self._library_refresh())
+
+        ttk.Button(toolbar, text=self.t("Refresh"),
+                   command=self._library_refresh).pack(side=tk.LEFT, padx=(0, 4))
+        self.lib_count_label = ttk.Label(toolbar, text="")
+        self.lib_count_label.pack(side=tk.LEFT, padx=(8, 0))
+
+        # ---- 主体：左侧列表，右侧详情 ----
+        body = ttk.Frame(parent)
+        body.pack(fill=tk.BOTH, expand=True)
+
+        # 左侧：Treeview
+        list_frame = ttk.Frame(body)
+        list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
+
+        cols = ("id", "time", "type", "rating", "prompt")
+        self.lib_tree = ttk.Treeview(list_frame, columns=cols, show="headings", height=20)
+        self.lib_tree.heading("id", text="ID")
+        self.lib_tree.heading("time", text=self.t("Time"))
+        self.lib_tree.heading("type", text=self.t("Type"))
+        self.lib_tree.heading("rating", text="★")
+        self.lib_tree.heading("prompt", text=self.t("Prompt / Notes"))
+        self.lib_tree.column("id", width=50, anchor=tk.E)
+        self.lib_tree.column("time", width=140)
+        self.lib_tree.column("type", width=90)
+        self.lib_tree.column("rating", width=40, anchor=tk.CENTER)
+        self.lib_tree.column("prompt", width=320)
+
+        vsb = ttk.Scrollbar(list_frame, orient="vertical", command=self.lib_tree.yview)
+        self.lib_tree.configure(yscrollcommand=vsb.set)
+        self.lib_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vsb.pack(side=tk.LEFT, fill=tk.Y)
+        self.lib_tree.bind("<<TreeviewSelect>>", self._library_on_select)
+
+        # 右侧：详情面板
+        detail = ttk.Frame(body, width=400)
+        detail.pack(side=tk.LEFT, fill=tk.BOTH)
+        detail.pack_propagate(False)
+
+        self.lib_preview_label = ttk.Label(detail, text=self.t("No preview image"),
+                                           anchor="center", relief="sunken")
+        self.lib_preview_label.pack(fill=tk.BOTH, expand=False, ipady=80)
+
+        info_frame = ttk.LabelFrame(detail, text=self.t("Details"), padding=6)
+        info_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
+
+        # 评级 + 标签
+        edit_frame = ttk.Frame(info_frame)
+        edit_frame.pack(fill=tk.X, pady=(0, 6))
+        ttk.Label(edit_frame, text="★").pack(side=tk.LEFT)
+        self.lib_rating_var = tk.IntVar(value=0)
+        ttk.Spinbox(edit_frame, from_=0, to=5, textvariable=self.lib_rating_var,
+                    width=4, command=self._library_save_rating).pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Label(edit_frame, text=self.t("Tags:")).pack(side=tk.LEFT)
+        self.lib_tags_var = tk.StringVar()
+        tags_entry = ttk.Entry(edit_frame, textvariable=self.lib_tags_var)
+        tags_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
+        tags_entry.bind("<FocusOut>", lambda e: self._library_save_tags())
+        tags_entry.bind("<Return>", lambda e: self._library_save_tags())
+
+        # prompt / params
+        self.lib_detail_text = tk.Text(info_frame, height=10, wrap="word")
+        self.lib_detail_text.pack(fill=tk.BOTH, expand=True)
+        self.lib_detail_text.config(state=tk.DISABLED)
+
+        # 操作按钮
+        btn_frame = ttk.Frame(info_frame)
+        btn_frame.pack(fill=tk.X, pady=(6, 0))
+        ttk.Button(btn_frame, text=self.t("Copy Prompt"),
+                   command=self._library_copy_prompt).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_frame, text=self.t("Open Folder"),
+                   command=self._library_open_folder).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_frame, text=self.t("Edit with Gemini"),
+                   command=self._library_edit_with_gemini).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(btn_frame, text=self.t("Delete Entry"),
+                   command=self._library_delete).pack(side=tk.RIGHT)
+
+        # 切到 tab 时自动刷新
+        self.notebook.bind("<<NotebookTabChanged>>", self._library_on_tab_change, add="+")
+        self._library_refresh()
+
+    def _library_on_tab_change(self, _event=None):
+        try:
+            if self.notebook.select() == str(self.tab_library):
+                self._library_refresh()
+        except Exception:
+            pass
+
+    def _library_refresh(self):
+        gtype = self.lib_type_var.get()
+        if gtype == "(all)":
+            gtype = None
+        kw = self.lib_keyword_var.get().strip() or None
+        min_rating = max(0, int(self.lib_min_rating_var.get() or 0))
+        entries = self._library_module.list_entries(
+            generator_type=gtype,
+            min_rating=min_rating,
+            keyword=kw,
+            limit=500,
+        )
+        self.lib_tree.delete(*self.lib_tree.get_children())
+        for e in entries:
+            time_str = e.created_at.replace("T", " ").rsplit("+", 1)[0]
+            stars = "★" * e.rating + "·" * (5 - e.rating)
+            preview = (e.prompt or e.notes or "").replace("\n", " ")
+            if len(preview) > 80:
+                preview = preview[:80] + "…"
+            self.lib_tree.insert("", "end", iid=str(e.id),
+                                 values=(e.id, time_str, e.generator_type, stars, preview))
+        self.lib_count_label.config(
+            text=self.t("{n} entries").format(n=len(entries))
+        )
+
+    def _library_on_select(self, _event=None):
+        sel = self.lib_tree.selection()
+        if not sel:
+            return
+        try:
+            entry_id = int(sel[0])
+        except (ValueError, IndexError):
+            return
+        entry = self._library_module.get_entry(entry_id)
+        if not entry:
+            return
+        self._library_selected_id = entry_id
+
+        # 评级 / 标签
+        self.lib_rating_var.set(entry.rating)
+        self.lib_tags_var.set(", ".join(entry.tags))
+
+        # 详情文本
+        import json as _json
+        params_str = _json.dumps(entry.params, ensure_ascii=False, indent=2) if entry.params else "(none)"
+        body = (
+            f"# Image\n{entry.image_path}\n\n"
+            f"# Created\n{entry.created_at}\n\n"
+            f"# Generator\n{entry.generator_type}\n\n"
+            f"# Batch\n{entry.source_batch_id or '-'}\n\n"
+            f"# Notes\n{entry.notes or '-'}\n\n"
+            f"# Params\n{params_str}\n\n"
+            f"# Prompt\n{entry.prompt}\n"
+        )
+        self.lib_detail_text.config(state=tk.NORMAL)
+        self.lib_detail_text.delete("1.0", tk.END)
+        self.lib_detail_text.insert("1.0", body)
+        self.lib_detail_text.config(state=tk.DISABLED)
+
+        # 图片预览
+        self._library_preview_photo = None
+        self.lib_preview_label.config(image="", text=self.t("No preview image"))
+        if entry.image_path and os.path.exists(entry.image_path):
+            try:
+                img = Image.open(entry.image_path)
+                img.thumbnail((380, 380))
+                self._library_preview_photo = ImageTk.PhotoImage(img)
+                self.lib_preview_label.config(image=self._library_preview_photo, text="")
+            except Exception as e:
+                self.lib_preview_label.config(text=f"(preview failed: {e})")
+
+    def _library_save_rating(self):
+        if self._library_selected_id is None:
+            return
+        self._library_module.update_rating(self._library_selected_id, int(self.lib_rating_var.get()))
+        # 仅刷新当前行的星级显示
+        iid = str(self._library_selected_id)
+        if self.lib_tree.exists(iid):
+            vals = list(self.lib_tree.item(iid, "values"))
+            r = int(self.lib_rating_var.get())
+            vals[3] = "★" * r + "·" * (5 - r)
+            self.lib_tree.item(iid, values=vals)
+
+    def _library_save_tags(self):
+        if self._library_selected_id is None:
+            return
+        raw = self.lib_tags_var.get()
+        tags = [t.strip() for t in raw.replace("，", ",").split(",") if t.strip()]
+        self._library_module.update_tags(self._library_selected_id, tags)
+
+    def _library_copy_prompt(self):
+        if self._library_selected_id is None:
+            return
+        entry = self._library_module.get_entry(self._library_selected_id)
+        if not entry or not entry.prompt:
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(entry.prompt)
+        self.status_var.set(self.t("Prompt copied to clipboard!"))
+
+    def _library_open_folder(self):
+        if self._library_selected_id is None:
+            return
+        entry = self._library_module.get_entry(self._library_selected_id)
+        if not entry or not entry.image_path:
+            return
+        target = entry.image_path
+        if not os.path.exists(target):
+            messagebox.showinfo(self.t("Info"), self.t("File no longer exists."))
+            return
+        # Windows: explorer /select,<path>
+        try:
+            import subprocess
+            if os.name == "nt":
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(target)])
+            else:
+                subprocess.Popen(["xdg-open", os.path.dirname(target)])
+        except Exception as e:
+            messagebox.showerror(self.t("Error"), str(e))
+
+    def _library_edit_with_gemini(self):
+        """从作品库选中条目加载图片到主预览区，并打开改图对话框。
+        编辑结果走原有保存流程，会作为新条目入库，batch_id='edit:<原id>' 留作演变链索引。"""
+        if self._library_selected_id is None:
+            return
+        entry = self._library_module.get_entry(self._library_selected_id)
+        if not entry:
+            return
+        if not entry.image_path or not os.path.exists(entry.image_path):
+            messagebox.showerror(self.t("Error"), self.t("File no longer exists."))
+            return
+        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        if not api_key:
+            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            return
+
+        # 读图片字节，写入主预览状态（复用 open_edit_dialog 的现有路径）
+        try:
+            with open(entry.image_path, "rb") as f:
+                image_bytes = f.read()
+        except Exception as e:
+            messagebox.showerror(self.t("Error"), str(e))
+            return
+        mime = mimetypes.guess_type(entry.image_path)[0] or "image/png"
+
+        self.pending_image_bytes = image_bytes
+        self.pending_image_mime = mime
+        self.pending_images = []
+        self.edit_undo_stack.clear()
+        # 编辑产物的 prefix 与父条目同类型，便于库里筛选
+        self.pending_image_prefix = f"{entry.generator_type}_edit"
+        # batch_id 编码父条目 id，将来可用此聚合演变链
+        self.pending_batch_id = f"edit:{entry.id}"
+        # 让主预览也显示一下这张图
+        try:
+            self.show_preview_image()
+        except Exception:
+            pass
+
+        # 打开改图对话框，预填该条目的 prompt 作为初稿
+        self.open_edit_dialog(initial_prompt=entry.prompt or "")
+
+    def _library_delete(self):
+        if self._library_selected_id is None:
+            return
+        if not messagebox.askyesno(self.t("Confirm"),
+                                   self.t("Delete this library entry? (image file is kept on disk)")):
+            return
+        self._library_module.delete_entry(self._library_selected_id)
+        self._library_selected_id = None
+        self._library_refresh()
+        self.lib_detail_text.config(state=tk.NORMAL)
+        self.lib_detail_text.delete("1.0", tk.END)
+        self.lib_detail_text.config(state=tk.DISABLED)
+        self.lib_preview_label.config(image="", text=self.t("No preview image"))
+        self._library_preview_photo = None
+
     def setup_settings_tab(self):
         parent = self.tab_settings
-        
+
         ttk.Label(parent, text=self.t("Settings Panel"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
         
         # Gemini API
@@ -2084,6 +2406,8 @@ class PromptApp:
         else:
             num_digits = max(2, len(str(cells_per_image * total_files)))
 
+        import uuid as _uuid
+        batch_id = _uuid.uuid4().hex if total_files > 1 else None
         success_count = 0
         errors = []
         current_index = 1
@@ -2124,6 +2448,28 @@ class PromptApp:
                     current_index += count
                 if success:
                     success_count += 1
+                    try:
+                        from core import library
+                        library.add_entry(
+                            generator_type="slicer",
+                            params={
+                                "source_image": fp,
+                                "output_dir": out_dir or "",
+                                "grid_rows": rows,
+                                "grid_cols": cols,
+                                "cell_count": count,
+                                "remove_bg": self.var_remove_bg.get(),
+                                "translate": do_translate,
+                                "csv": csv_to_use or "",
+                            },
+                            prompt="",
+                            image_path=fp,
+                            source_batch_id=batch_id,
+                            notes=f"Sliced into {count} cells",
+                        )
+                    except Exception as e:
+                        from core.logging_setup import get_logger
+                        get_logger("app").warning("library.add_entry (slicer) failed: %s", e)
                 else:
                     errors.append(f"{os.path.basename(fp)}: {msg}")
             except Exception as e:
@@ -2679,7 +3025,7 @@ class PromptApp:
         self.root.after(0, lambda: self.set_output(prompt))
         self._generate_image_task(prompt, reference_images)
 
-    def open_edit_dialog(self):
+    def open_edit_dialog(self, initial_prompt: str = ""):
         if not self.pending_image_bytes:
             messagebox.showerror(self.t("Error"), self.t("No image to edit."))
             return
@@ -2693,6 +3039,8 @@ class PromptApp:
         ttk.Label(dialog, text=self.t("Edit Prompt:"), font=("Arial", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
         prompt_box = tk.Text(dialog, height=10, wrap=tk.WORD)
         prompt_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        if initial_prompt:
+            prompt_box.insert("1.0", initial_prompt)
 
         btn_row = ttk.Frame(dialog)
         btn_row.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -2794,11 +3142,13 @@ class PromptApp:
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
             return
 
+        import uuid as _uuid
         self.pending_images = [{"bytes": b, "mime": m} for b, m in results]
         self.pending_image_bytes = None
         self.pending_image_mime = None
         self.edit_undo_stack.clear()
         self.pending_image_prefix = self.get_current_module_prefix()
+        self.pending_batch_id = _uuid.uuid4().hex if len(self.pending_images) > 1 else None
         self.active_preview_index = 0
         self.root.after(0, self.show_preview_images)
         self.root.after(0, self._refresh_undo_button)
@@ -2903,7 +3253,8 @@ class PromptApp:
             if not self.pending_images:
                 return
             item = self.pending_images[self.active_preview_index]
-            output_path = self._save_image_bytes_to_disk(item["bytes"], self.pending_image_prefix)
+            batch_id = getattr(self, "pending_batch_id", None)
+            output_path = self._save_image_bytes_to_disk(item["bytes"], self.pending_image_prefix, batch_id=batch_id)
             if output_path:
                 self.status_var.set(self.t("Image saved to {path}").format(path=output_path))
                 self._discard_active_pending_image(dialog)
@@ -2955,7 +3306,7 @@ class PromptApp:
             dialog.destroy()
             self.open_image_viewer(self.active_preview_index)
 
-    def _save_image_bytes_to_disk(self, image_bytes: bytes, prefix: str):
+    def _save_image_bytes_to_disk(self, image_bytes: bytes, prefix: str, batch_id: str = None):
         if not image_bytes:
             return None
         save_dir = self._get_current_save_dir()
@@ -2967,10 +3318,23 @@ class PromptApp:
         try:
             with open(output_path, "wb") as f:
                 f.write(image_bytes)
-            return output_path
         except Exception as e:
             messagebox.showerror(self.t("Error"), str(e))
             return None
+        # 入库：失败不打断主流程
+        try:
+            from core import library
+            current_prompt = self.output_text.get("1.0", tk.END).strip() if hasattr(self, "output_text") else ""
+            library.add_entry(
+                generator_type=prefix,
+                prompt=current_prompt,
+                image_path=output_path,
+                source_batch_id=batch_id,
+            )
+        except Exception as e:
+            from core.logging_setup import get_logger
+            get_logger("app").warning("library.add_entry failed: %s", e)
+        return output_path
 
     def save_preview_image(self):
         if not self.pending_image_bytes:
@@ -3030,6 +3394,8 @@ class PromptApp:
             return "slicer"
         if current == str(self.tab_curation):
             return "curation"
+        if hasattr(self, "tab_library") and current == str(self.tab_library):
+            return "library"
         return "gemini"
 
     # Note: generate_item_prompt and run_slicer are now threaded versions above
