@@ -1,0 +1,81 @@
+{
+  "designers": [
+    {
+      "name": "Kanetake Ebikawa",
+      "work": {"en": "Mobile Suit Gundam 00, Ghost in the Shell: Arise, IBO", "zh": "机动战士高达00、攻壳机动队Arise、铁血的奥尔芬斯"},
+      "tendency": {"en": "modern military mecha designer", "zh": "现代军事系机设师"},
+      "scope": ["mecha"],
+      "signature": "Slim modern proportions (head-to-body ~1:7), long shins, short thighs, narrow waist segment, shoulder-width planted stance with slight forward weight. Surface treatment: crisp double-layered panel skin — thin outer plates floating 2-3mm above a darker inner frame, exposing slot vents and small bolt heads at the seams. Clean matte primary color with semi-gloss accent strips along edges. Asymmetric loadout — one shoulder noticeably more massive than the other. Trapezoidal forearm covers. Twin small maneuvering thruster ports at the small of the back. NEVER bare exposed pistons, NEVER baroque ornamentation, NEVER organic curves."
+    },
+    {
+      "name": "Hajime Katoki",
+      "work": {"en": "Gundam Sentinel, Wing, Ver.Ka redesigns", "zh": "高达前哨战、新机动战记高达W、Ver.Ka 系列"},
+      "tendency": {"en": "precision real-robot mecha designer", "zh": "精密真实系机设师"},
+      "scope": ["mecha"],
+      "signature": "Mathematically symmetric silhouette (head-to-body ~1:7), flat-front torso, segmented waist with discrete plate divisions, straight pillar legs. Surface language: hard 45-degree chamfered edges everywhere, recessed panel-line grooves filled with a contrasting line tone, minimal curvature — the entire form built from beveled flat planes. Tri-color blocking with stencil decals, caution stripes, sans-serif registration markings in white. Cylindrical thruster nozzles flush-mounted on backpack and calves. NEVER asymmetry, NEVER exposed mechanical guts, NEVER organic curves, NEVER weathering or grime."
+    },
+    {
+      "name": "Mamoru Nagano",
+      "work": {"en": "The Five Star Stories (Mortar Headds), Heavy Metal L-Gaim", "zh": "五星物语（魔导大师）、重战机L-Gaim"},
+      "tendency": {"en": "baroque knight-mecha designer", "zh": "巴洛克骑士系机设师"},
+      "scope": ["mecha"],
+      "signature": "Extreme tapered proportions (head-to-body ~1:9 to 1:10), pin-narrow waist, long swan-curved limbs ending in pointed crystalline heels and clawed pointe-toe feet. Knight-on-horseback stance with hips cocked. Surface treatment: lacquered porcelain plates with chrome and metallic-gold filigree trim. Layered cape-like rear skirt armor that drapes like fabric in folds. Visible fluted column 'muscles' between plates resembling Gothic ribs. Crowned/horned upper sensor module with a ceremonial-helm style face mask. Heart-shaped or escutcheon-style chest piece. Swept-back wing-fins from the shoulders. Finger-articulated gauntlets with jeweled knuckles. NEVER military stencils, NEVER weathering, NEVER boxy hardware, NEVER camo paint, NEVER anything that reads 'tank' or 'infantry'."
+    },
+    {
+      "name": "Yutaka Izubuchi",
+      "work": {"en": "Patlabor (Ingram), RahXephon", "zh": "机动警察（英格拉姆）、翼神传说"},
+      "tendency": {"en": "civilian-utility / police mecha designer", "zh": "民用工程系机设师"},
+      "scope": ["mecha"],
+      "signature": "Stocky human-scale proportions (head-to-body ~1:6), wide hips, short stout legs, broad chest, hunched-forward operator stance. Reads as a piece of construction or police equipment with a person inside. Surface treatment: industrial enamel paint (high-visibility safety colors — white-and-black, traffic yellow, hazard orange) with rivets, hinged maintenance access hatches, warning placards, wiper-equipped canopy windows. Visible cockpit hatch on the chest with hinges and latches. Headlights and rotating beacons on the shoulders. Five-finger articulated hands. Strap-on backpack with antennas. Exposed shock absorbers at knee and ankle. NEVER beam weapons, NEVER metallic-gold trim, NEVER glowing eyes, NEVER fantasy ornamentation, NEVER insect-like sleekness."
+    },
+    {
+      "name": "Shoji Kawamori",
+      "work": {"en": "Macross Valkyrie series, Aquarion", "zh": "超时空要塞 Macross 战机系列、创圣大天使"},
+      "tendency": {"en": "convertible aerospace machine designer", "zh": "可变形飞行系机设师"},
+      "scope": ["mecha", "ship"],
+      "signature": "Aerospace-derived bipedal frame (head-to-body ~1:7): forward-pointing aerodynamic prow integrated into the chest, swing-wing aero panels stowed against the back as a backpack, leg modules clearly shaped as engine nacelles with afterburner rings at the heels. Surface treatment: aerospace skin — tight panel lines following stress paths, hinged control surfaces, reaction-control thrusters dotted around the body, air-data probes, formation strip lights, low-vis tactical greys with small squadron decals. Sensor module styled like a fighter aircraft cockpit canopy. Intake ducts on the chest or hips. Foldable wings carrying conformal external stores at the roots. Reverse-knee posing capability for transitional travel modes. NEVER baroque trim, NEVER ceremonial swords as primary armament, NEVER medieval silhouettes, NEVER anything that cannot plausibly transform into a flying configuration."
+    },
+    {
+      "name": "Kunio Okawara",
+      "work": {"en": "Mobile Suit Gundam (Zaku, GM, RX-78), Votoms (Scopedog)", "zh": "机动战士高达（扎古、GM、RX-78）、装甲骑兵（眼镜斗犬）"},
+      "tendency": {"en": "mass-production military mecha designer", "zh": "量产军用系机设师"},
+      "scope": ["mecha"],
+      "signature": "Mass-production stance (head-to-body ~1:7.5), symmetric, slightly wide-legged — looks stamped from a factory line. Surface treatment: smooth blocky armor plates with simple radius curves, low panel-line density, flat military colors (olive drab, naval grey, desert sand). Armor reads as cast and bolted, not floating. Sensor module is a simple armored housing — either a short turret-style block or a low rounded armored cap with a recessed forward optic band. Plain cylindrical or rounded shoulder pauldron with no decorative ornament. Soldierly upright bearing. NEVER filigree, NEVER organic curves, NEVER transforming gimmicks, NEVER asymmetric custom work, NEVER exposed inner-frame fetishization."
+    },
+    {
+      "name": "Kazutaka Miyatake",
+      "work": {"en": "SDF-1 Macross, Yamato refits, Destroid heavy walkers", "zh": "SDF-1 马克罗斯、宇宙战舰大和号、Destroid 重型机甲"},
+      "tendency": {"en": "capital-ship and large-hardware designer", "zh": "舰艇与大型机械设计师"},
+      "scope": ["ship"],
+      "signature": "Capital-ship and large-hardware specialist. Massive blocky volumes, layered hull greebles with deep recessed shadow zones, antenna mast forests, dreadnought-scale armored superstructure stacks, exposed engine framework with multiple visible thruster bells. Surface treatment: large flat armor plates broken up by dense panel-line clusters, riveted plating, painted hazard markings around access points. Heavy industrial 'lived-in' feel rather than clean factory-fresh. Best applied to ships rather than humanoid machines — when used on humanoid frames the silhouette tends to drift toward squat artillery-platform shapes."
+    },
+    {
+      "name": "Kow Yokoyama",
+      "work": {"en": "Maschinen Krieger ZbV 3000 (Ma.K)", "zh": "Maschinen Krieger（机械化骑兵）"},
+      "tendency": {"en": "infantry-scale powered armor designer", "zh": "步兵尺度装甲服设计师"},
+      "scope": ["mecha"],
+      "signature": "Squat infantry-scale powered armor (head-to-body ~1:5 to 1:6), hunched, like a person in a pressurized diving suit — NOT a giant robot. Single-pilot pod with stubby arms and bowed legs. Egg or ovoid main body with riveted plate seams. Surface treatment: wartime camouflage paint schemes (splinter pattern, dunkelgelb tan, winter whitewash) with HEAVY weathering — chipped paint, oil streaks, mud caking, hand-painted unit numbers, scorch marks around exhaust ports. Round porthole canopy or periscope-style optics for the pilot. Corrugated rubber accordion joints at elbow, knee, and neck. Exhaust stacks venting steam. Ammo pouches and stowed gear strapped to the body with leather and webbing. Antenna whips. NEVER giant-robot scale, NEVER beam weapons, NEVER glowing parts, NEVER clean factory paint, NEVER anime-hero proportions."
+    },
+    {
+      "name": "Makoto Kobayashi",
+      "work": {"en": "Char's Counterattack, Gundam ZZ heavy customs", "zh": "逆袭的夏亚、高达ZZ 重涂装定制机"},
+      "tendency": {"en": "lopsided one-off custom mecha designer", "zh": "定制改装系机设师"},
+      "scope": ["mecha"],
+      "signature": "Lopsided one-off custom proportions (head-to-body ~1:7) — one shoulder dramatically larger than the other, oversized backpack, bulked-up forearms or shins. Looks like a stock production unit that has been bashed and re-armored by a maintenance crew in the field. Surface treatment: mixed-source plating — smooth curved panels grafted onto angular bolt-on add-on armor, layered skirt plates, scratch-built vents and intakes welded into place. Heavy panel-line ink, oil shading, dry-brushed edge highlights, paint chipping along all corners. Massive auxiliary fuel or propellant tanks on the back. Oversized claw-hand or rotary-cannon forearm. Multiple muzzle clusters. Custom sensor module with extra horns or sensor stalks added on. Riot of small thruster nozzles ringing the lower skirt. NEVER symmetry, NEVER factory-clean paint, NEVER slim proportions, NEVER restrained ornamentation."
+    },
+    {
+      "name": "Ikuto Yamashita",
+      "work": {"en": "Neon Genesis Evangelion (EVA units)", "zh": "新世纪福音战士（EVA 机体）"},
+      "tendency": {"en": "biomechanical restraint-armor designer", "zh": "生体机械系机设师"},
+      "scope": ["mecha"],
+      "signature": "Tall lean predator stance (head-to-body ~1:8), hunched, bent knees, forward-tipped pelvis. Sinewy limbs, NOT blocky. Surface language: restraint-armor over an organic core — overlapping plates that read as exoskeleton restraints rather than mecha shell. Matte flat color blocking in unusual tones (deep purple, bruised green, dark orange). No panel-line clutter, no decals, no stencils. Bolts and pylons at major joints — shoulder pylon, spinal restraint at the base of the neck. Beast-like elongated upper module with a single sensor horn. Exposed muscle-cable bundles at the neck and inner thighs. Four-fingered claw hands rather than five-finger articulated hands. Prog-knife-style shoulder pylon. Umbilical cable port at the base of the spine. NEVER decorative antennas on the head, NEVER military stencils, NEVER transforming wings, NEVER baroque trim, NEVER a friendly twin-camera face, NEVER conventional rifle loadout."
+    },
+    {
+      "name": "Junya Ishigaki",
+      "work": {"en": "Gundam UC mobile armors, Macross Frontier capital ships", "zh": "高达UC 机动装甲、Macross Frontier 舰艇"},
+      "tendency": {"en": "hard-surface mobile-armor designer", "zh": "硬表面机动装甲设计师"},
+      "scope": ["mecha", "ship"],
+      "signature": "Hard-surface tech density. When humanoid (head-to-body ~1:8): mass concentrated in a huge backpack / binder structure that visually dwarfs the core body. Surface treatment: stacked layered plates, recessed grilles, exposed mechanical struts visible at joint gaps, gold-foil thermal blanket panels, dense clusters of conduit. High panel-line density, multiple greeble strata layered on top of each other. Enormous shoulder-mounted or dorsal binder containers. Segmented spinal column visible between back plates. Multi-nozzle thruster arrays in clover or hex patterns. Claw-tipped manipulator sub-arms emerging from the back binders. Mobile-armor-style aerodynamic 'wings' often larger than the body itself. NEVER simple stamped-plate surfaces, NEVER infantry scale, NEVER organic curves, NEVER knightly silhouettes, NEVER clean minimal panel work."
+    }
+  ]
+}
