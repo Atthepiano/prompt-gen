@@ -6,6 +6,9 @@ import prompt_generator as pg
 import item_generator as ig
 import character_generator as cg
 import clothing_generator as clg
+import mecha_generator as mg
+import mecha_part_generator as mpg
+import ship_generator as sg
 import gemini_service as gs
 import slicer_tool as st
 import curation_tool as ct
@@ -24,6 +27,9 @@ HAIR_PREVIEW_CONFIG_PATH = migrate_legacy_file("hair_previews.json")
 UI_TEXTS_ZH = {
     "Spaceship Prompt Generator": "飞船提示词生成器",
     "Spaceship Components": "飞船组件",
+    "Mecha": "机甲",
+    "Mecha Components": "机甲组件",
+    "Spaceship": "飞船",
     "Item Icons": "物品图标",
     "Character Prompts": "角色提示词",
     "Clothing Presets": "服装预设",
@@ -80,6 +86,28 @@ UI_TEXTS_ZH = {
     "Pick Main Color": "选择主色",
     "Pick Energy/Glow Color": "选择能量/发光颜色",
     "GENERATE COMPONENT PROMPT": "生成组件提示词",
+    "Mecha Prompt Generation": "机甲提示词生成",
+    "Generate a 4-view bare-frame mecha reference sheet (90s OVA real-robot style).": "生成 4 视图裸机机甲参考图（90s OVA 真实系机器人风格）。",
+    "Mecha Class:": "机甲机种：",
+    "Mecha Variant:": "机甲变体：",
+    "Mecha Designer (multi-select)": "机设师（可多选）",
+    "GENERATE MECHA PROMPT": "生成机甲提示词",
+    "Mecha Component Prompt Generation": "机甲组件提示词生成",
+    "Generate a 4-view reference sheet for an individual piece of mecha equipment (hand weapon, shield, shoulder pod).": "生成 4 视图机甲单件装备参考图（手持武器 / 盾 / 肩部模块）。",
+    "GENERATE MECHA COMPONENT PROMPT": "生成机甲组件提示词",
+    "Design Controls (Auto = random / by designer)": "设计控制（自动 = 随机 / 由设计师决定）",
+    "Sensor Module:": "传感器模组：",
+    "Surface Treatment:": "表面处理：",
+    "Shoulder Form:": "肩甲形态：",
+    "Propulsion Style:": "推进系统：",
+    "Paint Scheme:": "涂装格式：",
+    "Spaceship Prompt Generation": "飞船提示词生成",
+    "Generate a 4-view full-vessel spaceship reference sheet (90s OVA capital ship style).": "生成 4 视图整船飞船参考图（90s OVA 舰艇风格）。",
+    "Ship Archetype:": "船型：",
+    "Ship Variant:": "飞船变体：",
+    "Ship Designer (multi-select)": "机设师 / 舰设师（可多选）",
+    "GENERATE SHIP PROMPT": "生成飞船提示词",
+    "Clear Selection": "清除选择",
     "Item Icon Generation": "物品图标生成",
     "Generates a prompt for a 8x8 sprite sheet (64 items) from the selected CSV.": "根据所选 CSV 生成 8x8 精灵表（64 个物品）的提示词。",
     "Select CSV...": "选择 CSV...",
@@ -285,6 +313,110 @@ UI_TEXTS_ZH = {
     "Error loading image": "加载图片出错",
 }
 
+class _ComboboxTooltip:
+    """Lightweight tooltip that shows a hint string for the currently-selected
+    item of a Combobox. Hovering over the combobox for ~500ms pops the tooltip;
+    leaving the widget or changing selection hides it.
+
+    Usage:
+        tip = _ComboboxTooltip(combobox, hint_lookup)
+        # hint_lookup: callable(label_str) -> hint_str
+        # When the user changes selection or hovers, the tooltip text is the
+        # result of calling hint_lookup(combobox.get()).
+    """
+    DELAY_MS = 500
+    OFFSET_X = 14
+    OFFSET_Y = 18
+    MAX_WIDTH = 380
+
+    def __init__(self, widget, hint_lookup):
+        self.widget = widget
+        self.hint_lookup = hint_lookup
+        self._after_id = None
+        self._tipwin = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+        widget.bind("<<ComboboxSelected>>", self._on_select, add="+")
+
+    def _on_select(self, _e=None):
+        # Briefly hide on selection change so the new value's tooltip can be
+        # picked up next hover.
+        self._hide()
+
+    def _schedule(self, _e=None):
+        self._cancel()
+        self._after_id = self.widget.after(self.DELAY_MS, self._show)
+
+    def _cancel(self):
+        if self._after_id:
+            try:
+                self.widget.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+
+    def _show(self):
+        self._after_id = None
+        try:
+            label = self.widget.get()
+        except Exception:
+            return
+        text = ""
+        try:
+            text = self.hint_lookup(label) or ""
+        except Exception:
+            text = ""
+        if not text:
+            return
+        if self._tipwin:
+            return
+        # Position near the cursor
+        x = self.widget.winfo_pointerx() + self.OFFSET_X
+        y = self.widget.winfo_pointery() + self.OFFSET_Y
+        # Keep within screen bounds
+        try:
+            sw = self.widget.winfo_screenwidth()
+            sh = self.widget.winfo_screenheight()
+            if x + self.MAX_WIDTH + 20 > sw:
+                x = max(0, sw - self.MAX_WIDTH - 20)
+            if y + 80 > sh:
+                y = max(0, sh - 100)
+        except Exception:
+            pass
+        tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        try:
+            tw.attributes("-topmost", True)
+        except Exception:
+            pass
+        tw.wm_geometry(f"+{int(x)}+{int(y)}")
+        frame = tk.Frame(tw, background="#fffbe6", borderwidth=1, relief="solid")
+        frame.pack(fill="both", expand=True)
+        lbl = tk.Label(
+            frame,
+            text=text,
+            justify="left",
+            background="#fffbe6",
+            foreground="#222",
+            font=("Microsoft YaHei", 9) if tk.TkVersion else None,
+            wraplength=self.MAX_WIDTH,
+            padx=8,
+            pady=6,
+        )
+        lbl.pack()
+        self._tipwin = tw
+
+    def _hide(self, _e=None):
+        self._cancel()
+        if self._tipwin is not None:
+            try:
+                self._tipwin.destroy()
+            except Exception:
+                pass
+            self._tipwin = None
+
+
 class PromptApp:
     def __init__(self, root):
         self.root = root
@@ -357,6 +489,18 @@ class PromptApp:
         self.tab_spaceship = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_spaceship, text=self.t("Spaceship Components"))
 
+        # Tab 1b: Mecha
+        self.tab_mecha = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_mecha, text=self.t("Mecha"))
+
+        # Tab 1b': Mecha Components (hand weapons, shields, shoulder pods)
+        self.tab_mecha_part = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_mecha_part, text=self.t("Mecha Components"))
+
+        # Tab 1c: Spaceship (full vessel)
+        self.tab_ship = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(self.tab_ship, text=self.t("Spaceship"))
+
         # Tab 2: Item Icons
         self.tab_items = ttk.Frame(self.notebook, padding="10")
         self.notebook.add(self.tab_items, text=self.t("Item Icons"))
@@ -387,6 +531,15 @@ class PromptApp:
 
         # --- Setup Tab 1: Spaceship Controls ---
         self.setup_spaceship_tab()
+
+        # --- Setup Tab 1b: Mecha Controls ---
+        self.setup_mecha_tab()
+
+        # --- Setup Tab 1b': Mecha Components Controls ---
+        self.setup_mecha_part_tab()
+
+        # --- Setup Tab 1c: Ship Controls ---
+        self.setup_ship_tab()
 
         # --- Setup Tab 2: Item Controls ---
         self.setup_item_tab()
@@ -1363,7 +1516,7 @@ class PromptApp:
 
         ttk.Label(toolbar, text=self.t("Type:")).pack(side=tk.LEFT)
         self.lib_type_var = tk.StringVar(value="(all)")
-        type_options = ["(all)", "spaceship", "items", "character", "clothing", "slicer", "curation", "gemini", "clothing_swap"]
+        type_options = ["(all)", "spaceship", "mecha", "mecha_part", "ship", "items", "character", "clothing", "slicer", "curation", "gemini", "clothing_swap"]
         ttk.Combobox(toolbar, textvariable=self.lib_type_var, values=type_options,
                      state="readonly", width=14).pack(side=tk.LEFT, padx=(4, 12))
 
@@ -2564,12 +2717,427 @@ class PromptApp:
         if manu == "None / Generic":
             manu = None
 
-        prompt = pg.generate_prompt_by_strings(tier, cat, sub, 
-                                             primary_color=p_col, 
-                                             secondary_color=s_col, 
+        prompt = pg.generate_prompt_by_strings(tier, cat, sub,
+                                             primary_color=p_col,
+                                             secondary_color=s_col,
                                              manufacturer_name=manu,
                                              variation_name=var)
-        
+
+        self.set_output(prompt)
+
+    # =========================================================================
+    # Mecha tab
+    # =========================================================================
+
+    def setup_mecha_tab(self):
+        parent = self.tab_mecha
+        lang = self.ui_lang
+
+        # Use a scrollable canvas because there are now ~12 controls
+        outer = ttk.Frame(parent)
+        outer.pack(fill=tk.BOTH, expand=True)
+        canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
+        vscroll = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=canvas.yview)
+        body = ttk.Frame(canvas)
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=vscroll.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vscroll.pack(side=tk.LEFT, fill=tk.Y)
+        # Mouse wheel scroll
+        def _on_mousewheel(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        body.bind_all("<MouseWheel>", _on_mousewheel)
+
+        ttk.Label(body, text=self.t("Mecha Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 4))
+        ttk.Label(body, text=self.t("Generate a 4-view bare-frame mecha reference sheet (90s OVA real-robot style)."),
+                  foreground="gray", wraplength=360).pack(anchor="w", pady=(0, 10))
+
+        # --- Class / Variant / Tier (bilingual labels) ---
+        self._mecha_subcat_label_map = mg.get_subcategory_label_map(lang)
+        ttk.Label(body, text=self.t("Mecha Class:")).pack(anchor="w")
+        self.mecha_subcat_var = tk.StringVar()
+        self.mecha_subcat_combo = ttk.Combobox(body, textvariable=self.mecha_subcat_var, state="readonly")
+        self.mecha_subcat_combo['values'] = list(self._mecha_subcat_label_map.keys())
+        self.mecha_subcat_combo.current(0)
+        self.mecha_subcat_combo.pack(fill=tk.X, pady=(0, 10))
+
+        self._mecha_variant_label_map = mg.get_variant_label_map(lang)
+        ttk.Label(body, text=self.t("Mecha Variant:")).pack(anchor="w")
+        self.mecha_variant_var = tk.StringVar()
+        self.mecha_variant_combo = ttk.Combobox(body, textvariable=self.mecha_variant_var, state="readonly")
+        self.mecha_variant_combo['values'] = list(self._mecha_variant_label_map.keys())
+        self.mecha_variant_combo.current(0)
+        self.mecha_variant_combo.pack(fill=tk.X, pady=(0, 10))
+
+        self._mecha_tier_label_map = mg.get_tier_label_map(lang)
+        ttk.Label(body, text=self.t("Tech Tier:")).pack(anchor="w")
+        self.mecha_tier_var = tk.StringVar()
+        self.mecha_tier_combo = ttk.Combobox(body, textvariable=self.mecha_tier_var, state="readonly")
+        self.mecha_tier_combo['values'] = list(self._mecha_tier_label_map.keys())
+        self.mecha_tier_combo.current(2)
+        self.mecha_tier_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # --- Manufacturer ---
+        ttk.Separator(body, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(body, text=self.t("Manufacturer Preset"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+        self.mecha_manufacturer_var = tk.StringVar()
+        self.mecha_manufacturer_combo = ttk.Combobox(body, textvariable=self.mecha_manufacturer_var, state="readonly")
+        self.mecha_manufacturer_combo['values'] = self.manufacturer_list
+        self.mecha_manufacturer_combo.current(0)
+        self.mecha_manufacturer_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # --- Five Design Control axes ---
+        ttk.Separator(body, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(body, text=self.t("Design Controls (Auto = random / by designer)"),
+                  font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+
+        # Helper to build a bilingual axis dropdown with hover-tooltip
+        def _build_axis(label_key, options_fn, label_map_fn, hints_fn, default_index=0):
+            ttk.Label(body, text=self.t(label_key)).pack(anchor="w")
+            var = tk.StringVar()
+            combo = ttk.Combobox(body, textvariable=var, state="readonly")
+            options = options_fn(lang)
+            combo['values'] = options
+            combo.current(default_index)
+            combo.pack(fill=tk.X, pady=(0, 8))
+            hints = hints_fn(lang)
+            _ComboboxTooltip(combo, lambda lbl, h=hints: h.get(lbl, ""))
+            return var, combo, label_map_fn(lang), hints
+
+        (self.mecha_sensor_var, self.mecha_sensor_combo, self._mecha_sensor_map, self._mecha_sensor_hints) = \
+            _build_axis("Sensor Module:", mg.get_sensor_module_options,
+                        mg.get_sensor_module_label_map, mg.get_sensor_module_hints)
+        (self.mecha_surface_var, self.mecha_surface_combo, self._mecha_surface_map, self._mecha_surface_hints) = \
+            _build_axis("Surface Treatment:", mg.get_surface_treatment_options,
+                        mg.get_surface_treatment_label_map, mg.get_surface_treatment_hints)
+        (self.mecha_shoulder_var, self.mecha_shoulder_combo, self._mecha_shoulder_map, self._mecha_shoulder_hints) = \
+            _build_axis("Shoulder Form:", mg.get_shoulder_form_options,
+                        mg.get_shoulder_form_label_map, mg.get_shoulder_form_hints)
+        (self.mecha_propulsion_var, self.mecha_propulsion_combo, self._mecha_propulsion_map, self._mecha_propulsion_hints) = \
+            _build_axis("Propulsion Style:", mg.get_propulsion_style_options,
+                        mg.get_propulsion_style_label_map, mg.get_propulsion_style_hints)
+        (self.mecha_paint_var, self.mecha_paint_combo, self._mecha_paint_map, self._mecha_paint_hints) = \
+            _build_axis("Paint Scheme:", mg.get_paint_scheme_options,
+                        mg.get_paint_scheme_label_map, mg.get_paint_scheme_hints)
+
+        # --- Designer (multi-select via Listbox) ---
+        ttk.Separator(body, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(body, text=self.t("Mecha Designer (multi-select)"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+
+        designer_options = mg.get_designer_options(lang)
+        self._mecha_designer_label_map = mg.get_designer_label_map(lang)
+
+        designer_frame = ttk.Frame(body)
+        designer_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 5))
+        self.mecha_designer_listbox = tk.Listbox(designer_frame, selectmode=tk.MULTIPLE, height=6, exportselection=False)
+        for label in designer_options:
+            self.mecha_designer_listbox.insert(tk.END, label)
+        designer_scroll = ttk.Scrollbar(designer_frame, orient=tk.VERTICAL, command=self.mecha_designer_listbox.yview)
+        self.mecha_designer_listbox.configure(yscrollcommand=designer_scroll.set)
+        self.mecha_designer_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        designer_scroll.pack(side=tk.LEFT, fill=tk.Y)
+
+        ttk.Button(body, text=self.t("Clear Selection"),
+                   command=lambda: self.mecha_designer_listbox.selection_clear(0, tk.END)).pack(anchor="e", pady=(0, 10))
+
+        ttk.Separator(body, orient='horizontal').pack(fill='x', pady=10)
+
+        # Generate
+        ttk.Button(body, text=self.t("GENERATE MECHA PROMPT"),
+                   command=self.generate_mecha_prompt).pack(fill=tk.X, pady=(10, 0), ipady=10)
+
+    def generate_mecha_prompt(self):
+        tier_label = self.mecha_tier_var.get()
+        sub_label = self.mecha_subcat_var.get()
+        var_label = self.mecha_variant_var.get()
+        manu = self.mecha_manufacturer_var.get()
+
+        # Resolve bilingual labels back to canonical keys
+        tier = self._mecha_tier_label_map.get(tier_label, tier_label)
+        sub = self._mecha_subcat_label_map.get(sub_label, sub_label)
+        var = self._mecha_variant_label_map.get(var_label, var_label)
+
+        if not tier or not sub:
+            messagebox.showerror(self.t("Error"), self.t("Please select all options."))
+            return
+
+        if manu == "None / Generic":
+            manu = None
+
+        # Five design control axes — resolve label -> key (None for Auto)
+        sensor_key = self._mecha_sensor_map.get(self.mecha_sensor_var.get())
+        surface_key = self._mecha_surface_map.get(self.mecha_surface_var.get())
+        shoulder_key = self._mecha_shoulder_map.get(self.mecha_shoulder_var.get())
+        propulsion_key = self._mecha_propulsion_map.get(self.mecha_propulsion_var.get())
+        paint_key = self._mecha_paint_map.get(self.mecha_paint_var.get())
+
+        selected_labels = [self.mecha_designer_listbox.get(i) for i in self.mecha_designer_listbox.curselection()]
+        designer_names = [self._mecha_designer_label_map.get(lbl, lbl) for lbl in selected_labels]
+
+        prompt = mg.generate_mecha_prompt_by_strings(
+            tier_name=tier,
+            subcategory=sub,
+            manufacturer_name=manu,
+            variation_name=var,
+            designer_names=designer_names,
+            sensor_module_key=sensor_key,
+            surface_treatment_key=surface_key,
+            shoulder_form_key=shoulder_key,
+            propulsion_style_key=propulsion_key,
+            paint_scheme_key=paint_key,
+        )
+        self.set_output(prompt)
+
+    # =========================================================================
+    # Mecha Components tab (hand weapons, shields, shoulder pods)
+    # =========================================================================
+
+    def setup_mecha_part_tab(self):
+        parent = self.tab_mecha_part
+        lang = self.ui_lang
+
+        ttk.Label(parent, text=self.t("Mecha Component Prompt Generation"),
+                  font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 4))
+        ttk.Label(parent,
+                  text=self.t("Generate a 4-view reference sheet for an individual piece of mecha equipment (hand weapon, shield, shoulder pod)."),
+                  foreground="gray", wraplength=360).pack(anchor="w", pady=(0, 10))
+
+        # Subcategory (mount type)
+        self._mecha_part_subcat_label_map = mpg.get_subcategory_label_map(lang)
+        ttk.Label(parent, text=self.t("Component Category:")).pack(anchor="w")
+        self.mecha_part_subcat_var = tk.StringVar()
+        self.mecha_part_subcat_combo = ttk.Combobox(parent, textvariable=self.mecha_part_subcat_var, state="readonly")
+        self.mecha_part_subcat_combo['values'] = list(self._mecha_part_subcat_label_map.keys())
+        self.mecha_part_subcat_combo.current(0)
+        self.mecha_part_subcat_combo.pack(fill=tk.X, pady=(0, 10))
+        self.mecha_part_subcat_combo.bind("<<ComboboxSelected>>", self._update_mecha_part_variants)
+
+        # Structural Variant
+        ttk.Label(parent, text=self.t("Structural Variant (Form Factor):")).pack(anchor="w")
+        self.mecha_part_variant_var = tk.StringVar()
+        self.mecha_part_variant_combo = ttk.Combobox(parent, textvariable=self.mecha_part_variant_var, state="readonly")
+        self.mecha_part_variant_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Tier
+        self._mecha_part_tier_label_map = mpg.get_tier_label_map(lang)
+        ttk.Label(parent, text=self.t("Tech Tier:")).pack(anchor="w")
+        self.mecha_part_tier_var = tk.StringVar()
+        self.mecha_part_tier_combo = ttk.Combobox(parent, textvariable=self.mecha_part_tier_var, state="readonly")
+        self.mecha_part_tier_combo['values'] = list(self._mecha_part_tier_label_map.keys())
+        self.mecha_part_tier_combo.current(2)
+        self.mecha_part_tier_combo.pack(fill=tk.X, pady=(0, 20))
+
+        # --- Manufacturer ---
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(parent, text=self.t("Manufacturer Preset"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+        self.mecha_part_manufacturer_var = tk.StringVar()
+        self.mecha_part_manufacturer_combo = ttk.Combobox(parent, textvariable=self.mecha_part_manufacturer_var, state="readonly")
+        self.mecha_part_manufacturer_combo['values'] = self.manufacturer_list
+        self.mecha_part_manufacturer_combo.current(0)
+        self.mecha_part_manufacturer_combo.pack(fill=tk.X, pady=(0, 10))
+        self.mecha_part_manufacturer_combo.bind("<<ComboboxSelected>>", self._on_mecha_part_manufacturer_change)
+
+        self.lbl_mecha_part_manufacturer_desc = ttk.Label(parent, text="", foreground="gray", wraplength=350)
+        self.lbl_mecha_part_manufacturer_desc.pack(anchor="w", pady=(0, 10))
+
+        # --- Color Override ---
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(parent, text=self.t("Color Override"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 10))
+        self.mecha_part_use_custom_colors = tk.BooleanVar(value=False)
+        self.chk_mecha_part_custom_color = ttk.Checkbutton(
+            parent, text=self.t("Enable Custom Colors"),
+            variable=self.mecha_part_use_custom_colors,
+            command=self._toggle_mecha_part_color_buttons,
+        )
+        self.chk_mecha_part_custom_color.pack(anchor="w", pady=(0, 10))
+
+        self.mecha_part_primary_color = "#444444"
+        self.mecha_part_secondary_color = "#00FFFF"
+        self.btn_mecha_part_primary_color = tk.Button(
+            parent, text=self.t("Pick Main Color"),
+            command=lambda: self._pick_mecha_part_color('primary'),
+            state=tk.DISABLED, bg="#dddddd",
+        )
+        self.btn_mecha_part_primary_color.pack(fill=tk.X, pady=2)
+        self.btn_mecha_part_secondary_color = tk.Button(
+            parent, text=self.t("Pick Energy/Glow Color"),
+            command=lambda: self._pick_mecha_part_color('secondary'),
+            state=tk.DISABLED, bg="#dddddd",
+        )
+        self.btn_mecha_part_secondary_color.pack(fill=tk.X, pady=2)
+
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=20)
+
+        ttk.Button(parent, text=self.t("GENERATE MECHA COMPONENT PROMPT"),
+                   command=self.generate_mecha_part_prompt).pack(fill=tk.X, pady=(10, 0), ipady=10)
+
+        # Initial variant fill
+        self._update_mecha_part_variants()
+
+    def _update_mecha_part_variants(self, _e=None):
+        lang = self.ui_lang
+        sub_label = self.mecha_part_subcat_var.get()
+        sub_key = self._mecha_part_subcat_label_map.get(sub_label, sub_label)
+        self._mecha_part_variant_label_map = mpg.get_variant_label_map(sub_key, lang)
+        opts = list(self._mecha_part_variant_label_map.keys())
+        self.mecha_part_variant_combo['values'] = opts
+        if opts:
+            self.mecha_part_variant_combo.current(0)
+        else:
+            self.mecha_part_variant_var.set("")
+
+    def _on_mecha_part_manufacturer_change(self, _e=None):
+        name = self.mecha_part_manufacturer_var.get()
+        if not name or name == "None / Generic":
+            self.lbl_mecha_part_manufacturer_desc.config(text="")
+            return
+        m = pg.get_manufacturer_by_name(name)
+        if m:
+            desc = f"{m.get('design_language', '')}  |  {m.get('color_palette', '')}"
+            self.lbl_mecha_part_manufacturer_desc.config(text=desc)
+        else:
+            self.lbl_mecha_part_manufacturer_desc.config(text="")
+
+    def _toggle_mecha_part_color_buttons(self):
+        state = tk.NORMAL if self.mecha_part_use_custom_colors.get() else tk.DISABLED
+        self.btn_mecha_part_primary_color.config(state=state)
+        self.btn_mecha_part_secondary_color.config(state=state)
+
+    def _pick_mecha_part_color(self, slot):
+        color = colorchooser.askcolor(title=self.t("Pick a Color"))
+        if color and color[1]:
+            hex_code = color[1]
+            if slot == 'primary':
+                self.mecha_part_primary_color = hex_code
+                self.btn_mecha_part_primary_color.config(bg=hex_code, text=hex_code)
+            else:
+                self.mecha_part_secondary_color = hex_code
+                self.btn_mecha_part_secondary_color.config(bg=hex_code, text=hex_code)
+
+    def generate_mecha_part_prompt(self):
+        sub_label = self.mecha_part_subcat_var.get()
+        var_label = self.mecha_part_variant_var.get()
+        tier_label = self.mecha_part_tier_var.get()
+        manu = self.mecha_part_manufacturer_var.get()
+
+        sub_key = self._mecha_part_subcat_label_map.get(sub_label, sub_label)
+        var_key = getattr(self, "_mecha_part_variant_label_map", {}).get(var_label, var_label)
+        tier_key = self._mecha_part_tier_label_map.get(tier_label, tier_label)
+
+        if not sub_key or not tier_key:
+            messagebox.showerror(self.t("Error"), self.t("Please select all options."))
+            return
+
+        if manu == "None / Generic":
+            manu = None
+
+        p_col = self.mecha_part_primary_color if self.mecha_part_use_custom_colors.get() else None
+        s_col = self.mecha_part_secondary_color if self.mecha_part_use_custom_colors.get() else None
+
+        prompt = mpg.generate_mecha_part_prompt_by_strings(
+            tier_name=tier_key,
+            subcategory_key=sub_key,
+            primary_color=p_col,
+            secondary_color=s_col,
+            manufacturer_name=manu,
+            variation_key=var_key,
+        )
+        self.set_output(prompt)
+
+    # =========================================================================
+    # Spaceship (full vessel) tab
+    # =========================================================================
+
+    def setup_ship_tab(self):
+        parent = self.tab_ship
+        lang = self.ui_lang
+
+        ttk.Label(parent, text=self.t("Spaceship Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 4))
+        ttk.Label(parent, text=self.t("Generate a 4-view full-vessel spaceship reference sheet (90s OVA capital ship style)."),
+                  foreground="gray", wraplength=360).pack(anchor="w", pady=(0, 10))
+
+        # Archetype
+        ttk.Label(parent, text=self.t("Ship Archetype:")).pack(anchor="w")
+        self.ship_archetype_var = tk.StringVar()
+        self.ship_archetype_combo = ttk.Combobox(parent, textvariable=self.ship_archetype_var, state="readonly")
+        self.ship_archetype_combo['values'] = sg.get_archetype_list()
+        self.ship_archetype_combo.current(0)
+        self.ship_archetype_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Variant
+        ttk.Label(parent, text=self.t("Ship Variant:")).pack(anchor="w")
+        self.ship_variant_var = tk.StringVar()
+        self.ship_variant_combo = ttk.Combobox(parent, textvariable=self.ship_variant_var, state="readonly")
+        self.ship_variant_combo['values'] = sg.get_variant_list()
+        self.ship_variant_combo.current(0)
+        self.ship_variant_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Tier
+        ttk.Label(parent, text=self.t("Tech Tier:")).pack(anchor="w")
+        self.ship_tier_var = tk.StringVar()
+        self.ship_tier_combo = ttk.Combobox(parent, textvariable=self.ship_tier_var, state="readonly")
+        self.ship_tier_combo['values'] = self.tier_list
+        self.ship_tier_combo.current(2)
+        self.ship_tier_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Manufacturer
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(parent, text=self.t("Manufacturer Preset"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+        self.ship_manufacturer_var = tk.StringVar()
+        self.ship_manufacturer_combo = ttk.Combobox(parent, textvariable=self.ship_manufacturer_var, state="readonly")
+        self.ship_manufacturer_combo['values'] = self.manufacturer_list
+        self.ship_manufacturer_combo.current(0)
+        self.ship_manufacturer_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Designer (shared mecha designer pool)
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Label(parent, text=self.t("Ship Designer (multi-select)"), font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
+
+        designer_options = sg.get_designer_options(lang)
+        self._ship_designer_label_map = sg.get_designer_label_map(lang)
+
+        designer_frame = ttk.Frame(parent)
+        designer_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 5))
+        self.ship_designer_listbox = tk.Listbox(designer_frame, selectmode=tk.MULTIPLE, height=6, exportselection=False)
+        for label in designer_options:
+            self.ship_designer_listbox.insert(tk.END, label)
+        designer_scroll = ttk.Scrollbar(designer_frame, orient=tk.VERTICAL, command=self.ship_designer_listbox.yview)
+        self.ship_designer_listbox.configure(yscrollcommand=designer_scroll.set)
+        self.ship_designer_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        designer_scroll.pack(side=tk.LEFT, fill=tk.Y)
+
+        ttk.Button(parent, text=self.t("Clear Selection"),
+                   command=lambda: self.ship_designer_listbox.selection_clear(0, tk.END)).pack(anchor="e", pady=(0, 10))
+
+        ttk.Separator(parent, orient='horizontal').pack(fill='x', pady=10)
+
+        ttk.Button(parent, text=self.t("GENERATE SHIP PROMPT"),
+                   command=self.generate_ship_prompt).pack(fill=tk.X, pady=(10, 0), ipady=10)
+
+    def generate_ship_prompt(self):
+        tier = self.ship_tier_var.get()
+        archetype = self.ship_archetype_var.get()
+        var = self.ship_variant_var.get()
+        manu = self.ship_manufacturer_var.get()
+
+        if not tier or not archetype:
+            messagebox.showerror(self.t("Error"), self.t("Please select all options."))
+            return
+
+        if manu == "None / Generic":
+            manu = None
+
+        selected_labels = [self.ship_designer_listbox.get(i) for i in self.ship_designer_listbox.curselection()]
+        designer_names = [self._ship_designer_label_map.get(lbl, lbl) for lbl in selected_labels]
+
+        prompt = sg.generate_ship_prompt_by_strings(
+            tier_name=tier,
+            archetype_name=archetype,
+            manufacturer_name=manu,
+            variation_name=var,
+            designer_names=designer_names,
+        )
         self.set_output(prompt)
 
     def _update_age_label(self):
@@ -2953,6 +3521,12 @@ class PromptApp:
         # Auto-regenerate prompt for the active tab before reading
         if current_tab == str(self.tab_spaceship):
             self.generate_spaceship_prompt()
+        elif current_tab == str(self.tab_mecha):
+            self.generate_mecha_prompt()
+        elif current_tab == str(self.tab_mecha_part):
+            self.generate_mecha_part_prompt()
+        elif current_tab == str(self.tab_ship):
+            self.generate_ship_prompt()
         elif current_tab == str(self.tab_characters):
             self.generate_character_prompt()
         elif current_tab == str(self.tab_clothing):
@@ -3384,6 +3958,12 @@ class PromptApp:
         current = self.notebook.select()
         if current == str(self.tab_spaceship):
             return "spaceship"
+        if hasattr(self, "tab_mecha") and current == str(self.tab_mecha):
+            return "mecha"
+        if hasattr(self, "tab_mecha_part") and current == str(self.tab_mecha_part):
+            return "mecha_part"
+        if hasattr(self, "tab_ship") and current == str(self.tab_ship):
+            return "ship"
         if current == str(self.tab_items):
             return "items"
         if current == str(self.tab_characters):
