@@ -21,24 +21,61 @@ from . import mecha_generator as mg
 ARCHETYPES_PATH = resource_path("ship_archetypes.json")
 
 
-def load_archetypes() -> List[Dict]:
+def _load_data() -> Dict:
     try:
         with open(ARCHETYPES_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         if isinstance(data, dict):
-            return list(data.get("archetypes", []))
-        if isinstance(data, list):
             return data
+        if isinstance(data, list):
+            return {"archetypes": data, "variants": []}
     except (OSError, json.JSONDecodeError):
         pass
-    return []
+    return {"archetypes": [], "variants": []}
+
+
+def load_archetypes() -> List[Dict]:
+    return list(_load_data().get("archetypes", []))
+
+
+def load_variants() -> List[Dict]:
+    return list(_load_data().get("variants", []))
 
 
 ARCHETYPES = load_archetypes()
 ARCHETYPE_BY_NAME: Dict[str, Dict] = {a["name"]: a for a in ARCHETYPES}
 
+VARIANTS = load_variants()
+# Fallback for older JSON files that lacked the "variants" key.
+if not VARIANTS:
+    VARIANTS = [
+        {"id": "Standard", "name_en": "Standard", "name_zh": "标准型", "descriptor": ""},
+        {"id": "Block-II Refit", "name_en": "Block-II Refit", "name_zh": "Block-II 改装",
+         "descriptor": "STRUCTURAL VARIANT: Block-II refit — additional bolted-on armor "
+                      "panels, upgraded sensor mast, visible mid-life modernization seams."},
+        {"id": "Civilian Variant", "name_en": "Civilian Variant", "name_zh": "民用改型",
+         "descriptor": "STRUCTURAL VARIANT: Civilian conversion — turrets removed or "
+                      "faired over, additional cargo blisters and viewport rows added, "
+                      "civilian livery panel layout."},
+        {"id": "Pirate Conversion", "name_en": "Pirate Conversion", "name_zh": "海盗改装",
+         "descriptor": "STRUCTURAL VARIANT: Pirate conversion — mismatched salvaged armor "
+                      "patches, jury-rigged extra weapon mounts welded on, asymmetric "
+                      "bolt-on hull modifications and exposed cabling."},
+        {"id": "Stealth Variant", "name_en": "Stealth Variant", "name_zh": "隐身型",
+         "descriptor": "STRUCTURAL VARIANT: Stealth configuration — flush faceted radar-"
+                      "absorbent paneling, recessed vents, no protruding antennas, minimal "
+                      "external greebles."},
+    ]
+
+# Back-compat: legacy code referenced SHIP_VARIANTS as a list of names.
+SHIP_VARIANTS: List[str] = [v["id"] for v in VARIANTS]
+VARIANT_BY_ID: Dict[str, Dict] = {v["id"]: v for v in VARIANTS}
+
+
+# --- Archetype helpers ---
 
 def get_archetype_names() -> List[str]:
+    """Canonical (English) archetype names — used by the generator core."""
     return [a["name"] for a in ARCHETYPES]
 
 
@@ -46,34 +83,69 @@ def get_archetype(name: str) -> Optional[Dict]:
     return ARCHETYPE_BY_NAME.get(name)
 
 
-SHIP_VARIANTS = [
-    "Standard",
-    "Block-II Refit",
-    "Civilian Variant",
-    "Pirate Conversion",
-    "Stealth Variant",
-]
+def get_archetype_list(lang: str = "en") -> List[str]:
+    """Localized labels for the UI dropdown."""
+    if lang == "zh":
+        return [a.get("name_zh") or a["name"] for a in ARCHETYPES]
+    return [a["name"] for a in ARCHETYPES]
 
 
-def _variant_descriptor(variation: Optional[str]) -> str:
-    if not variation or variation == "Standard":
+def get_archetype_label_map(lang: str = "en") -> Dict[str, str]:
+    """label (localized) -> canonical English name. UI passes the canonical
+    name back to the generator regardless of display language."""
+    if lang == "zh":
+        return {(a.get("name_zh") or a["name"]): a["name"] for a in ARCHETYPES}
+    return {a["name"]: a["name"] for a in ARCHETYPES}
+
+
+# --- Variant helpers ---
+
+def get_variant_list(lang: str = "en") -> List[str]:
+    """Localized labels for the UI dropdown."""
+    if lang == "zh":
+        return [v.get("name_zh") or v["name_en"] for v in VARIANTS]
+    return [v["name_en"] for v in VARIANTS]
+
+
+def get_variant_label_map(lang: str = "en") -> Dict[str, str]:
+    """label (localized) -> canonical id. UI passes the id back to the generator."""
+    if lang == "zh":
+        return {(v.get("name_zh") or v["name_en"]): v["id"] for v in VARIANTS}
+    return {v["name_en"]: v["id"] for v in VARIANTS}
+
+
+def _variant_descriptor(variation_id: Optional[str]) -> str:
+    if not variation_id or variation_id == "Standard":
         return ""
-    if variation == "Block-II Refit":
-        return ("STRUCTURAL VARIANT: Block-II refit — additional bolted-on armor "
-                "panels, upgraded sensor mast, visible mid-life modernization seams.")
-    if variation == "Civilian Variant":
-        return ("STRUCTURAL VARIANT: Civilian conversion — turrets removed or "
-                "faired over, additional cargo blisters and viewport rows added, "
-                "civilian livery panel layout.")
-    if variation == "Pirate Conversion":
-        return ("STRUCTURAL VARIANT: Pirate conversion — mismatched salvaged "
-                "armor patches, jury-rigged extra weapon mounts welded on, "
-                "asymmetric bolt-on hull modifications and exposed cabling.")
-    if variation == "Stealth Variant":
-        return ("STRUCTURAL VARIANT: Stealth configuration — flush faceted radar-"
-                "absorbent paneling, recessed vents, no protruding antennas, "
-                "minimal external greebles.")
-    return ""
+    v = VARIANT_BY_ID.get(variation_id)
+    return v.get("descriptor", "") if v else ""
+
+
+# --- Carrier directives (single source of truth) ---
+
+_CARRIER_DIRECTIVE = (
+    "CARRIER CONFIGURATION (critical silhouette directive): "
+    "vertically-thick armored hull oriented along its long axis. The forward third "
+    "splits into a wide longitudinal launch channel running fore-to-aft along the "
+    "centerline, exiting face-first out the bow opening. Two outboard hangar sponsons "
+    "run parallel along the flanks as modular bolted-on extensions. The dorsal command "
+    "block is a low-profile stepped armored structure integrated FLUSH into the dorsal "
+    "spine amidships with horizontal viewport bands — NOT a separate tower, NOT shaped "
+    "like an animal or human face. The rear is an exposed engine framework cradle "
+    "holding multiple large thruster bells. Do NOT draw any piloted machines inside or "
+    "around the ship — only the carrier infrastructure itself."
+)
+
+_CARRIER_NEGATIVE = (
+    "**ANTI-FLAT-DECK CARRIER NEGATIVE (CRITICAL):**\n"
+    "This vessel must NOT take the form of a horizontally-flat carrier platform. Forbidden:\n"
+    "- NO flat horizontal top deck, NO angled landing deck, NO ski-jump bow\n"
+    "- NO arrestor wires, NO catapult tracks running across a top deck surface\n"
+    "- NO offset 'island' superstructure perched on the edge of a flat deck\n"
+    "- NO aircraft, jets, planes, helicopters, or piloted machines parked on a top surface\n"
+    "- NO vehicles launched from above — all launches exit FORWARD out the bow\n"
+    "- NO command tower shaped like an animal or human head/face"
+)
 
 
 class ShipGenerator(pg.ComponentGenerator):
@@ -87,9 +159,11 @@ class ShipGenerator(pg.ComponentGenerator):
         variation: Optional[str] = None,
         designers: Optional[List[Dict]] = None,
     ):
+        # ComponentType is unused by the ship pipeline (generate_full_prompt is
+        # fully overridden), but the parent constructor requires a value.
         super().__init__(
             tier,
-            pg.ComponentType.WEAPON,  # placeholder — overridden in generate_full_prompt
+            pg.ComponentType.WEAPON,
             archetype_name,
             primary_color,
             secondary_color,
@@ -109,19 +183,7 @@ class ShipGenerator(pg.ComponentGenerator):
                 "- NO ocean, NO water, NO sea spray, NO waterline — this is a vessel that operates in vacuum, not on a fluid surface.\n"
                 "- The command structure is a piece of armored equipment, NOT shaped like an animal or human face — NO face features (eyes, mouth, lips, brows), NO crowning antenna 'horns' arranged like ears, NO viewport patterns shaped like a face.")
         if self.archetype.get("carries_mecha"):
-            base += (
-                "\n\n**ANTI-FLAT-DECK CARRIER NEGATIVE (CRITICAL — READ CAREFULLY):**\n"
-                "This vessel must NOT take the form of a horizontally-flat carrier platform. Specifically forbidden forms:\n"
-                "- NO flat horizontal top deck running the length of the hull\n"
-                "- NO angled landing deck of any kind\n"
-                "- NO ski-jump bow, NO arrestor wires, NO catapult tracks running across a top deck surface\n"
-                "- NO offset 'island' superstructure perched on the edge of a flat deck\n"
-                "- NO aircraft, jets, planes, helicopters, or piloted machines parked or visible on a top surface\n"
-                "- NO vehicles launched from above — all launch operations exit FORWARD out the bow\n"
-                "- The overall silhouette must read as a vertically-thick armored hull, NOT a horizontally-flat platform\n"
-                "- The command structure is integrated INTO the dorsal hull as a low-profile stepped armored block, NOT perched on top as a separate tower, and NOT shaped like an animal or human head / face\n"
-                "Correct form: a vertically-thick armored hull with a longitudinal forward launch channel exiting out the bow, modular hangar sponsons on the flanks, integrated low-profile dorsal command block, and an exposed rear engine framework cradle."
-            )
+            base += "\n\n" + _CARRIER_NEGATIVE
         return base
 
     def _designer_signature_line(self) -> str:
@@ -145,6 +207,7 @@ class ShipGenerator(pg.ComponentGenerator):
         design_lang = self._get_design_language()
 
         role = arche.get("role", "spacecraft")
+        unique_anchor = arche.get("unique_anchor", "")
         silhouette = arche.get("silhouette", "")
         scale_note = arche.get("scale_note", "")
         pool = list(arche.get("features_pool", []))
@@ -154,30 +217,17 @@ class ShipGenerator(pg.ComponentGenerator):
         designer_line = self._designer_signature_line()
         variant_line = _variant_descriptor(self.variation)
 
-        carrier_line = ""
-        if arche.get("carries_mecha"):
-            carrier_line = (
-                "CARRIER CONFIGURATION (critical silhouette directive): "
-                "This vessel is shaped as a vertically-thick armored hull oriented along its long "
-                "axis, NOT as a horizontally-flat platform. The forward third of the hull splits "
-                "into a wide longitudinal launch channel running fore-to-aft along the centerline "
-                "— the catapult tunnel exits face-first out the bow opening. Two large outboard "
-                "hangar sponsons run parallel along the flanks of the hull, attached as modular "
-                "bolted-on extensions. The dorsal command block is a low-profile stepped armored "
-                "structure integrated FLUSH into the dorsal spine amidships, with horizontal "
-                "viewport bands — it is NOT perched on top as a separate tower, NOT shaped like an "
-                "animal or human face, and has no facial features (no eyes, mouth, lips, or brow). "
-                "The rear is an exposed engine framework "
-                "cradle holding multiple large thruster bells. Do NOT draw any piloted machines "
-                "inside or around the ship — only the carrier infrastructure itself."
-            )
-
         lines = [
             f"SUBJECT DESCRIPTION ({tier_adj} {role}):",
             (f"This is a complete spaceship — a {tier_secondary} {role}. "
              "The vessel is shown as a clean reference sheet, fully isolated."),
-            f"Silhouette: {silhouette}.",
         ]
+        # Unique anchor leads — it is the single most important visual cue that
+        # distinguishes this archetype from sibling classes.
+        if unique_anchor:
+            lines.append(f"Defining visual anchor (must dominate the silhouette): {unique_anchor}.")
+        if silhouette:
+            lines.append(f"Silhouette: {silhouette}.")
         if scale_note:
             lines.append(f"Scale: {scale_note}.")
         if designer_line:
@@ -185,8 +235,10 @@ class ShipGenerator(pg.ComponentGenerator):
         lines.append(f"Design language: {design_lang}")
         if variant_line:
             lines.append(variant_line)
-        if carrier_line:
-            lines.append(carrier_line)
+        # Carrier directive only appended once, here — silhouette + negative
+        # prompt no longer repeat the same content.
+        if arche.get("carries_mecha"):
+            lines.append(_CARRIER_DIRECTIVE)
         if feature_prose:
             lines.append(
                 "Visible structural features (drawn as part of the geometry, NOT labeled "
@@ -226,14 +278,6 @@ class ShipGenerator(pg.ComponentGenerator):
 
 
 # --- UI helpers ---
-
-def get_archetype_list() -> List[str]:
-    return get_archetype_names()
-
-
-def get_variant_list() -> List[str]:
-    return list(SHIP_VARIANTS)
-
 
 def get_designer_options(lang: str = "en") -> List[str]:
     """Ships filter the designer pool to ship-capable designers only.

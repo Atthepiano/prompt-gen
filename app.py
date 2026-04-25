@@ -3057,19 +3057,21 @@ class PromptApp:
         ttk.Label(parent, text=self.t("Generate a 4-view full-vessel spaceship reference sheet (90s OVA capital ship style)."),
                   foreground="gray", wraplength=360).pack(anchor="w", pady=(0, 10))
 
-        # Archetype
+        # Archetype (labels follow UI language; map back to canonical name on submit)
         ttk.Label(parent, text=self.t("Ship Archetype:")).pack(anchor="w")
         self.ship_archetype_var = tk.StringVar()
         self.ship_archetype_combo = ttk.Combobox(parent, textvariable=self.ship_archetype_var, state="readonly")
-        self.ship_archetype_combo['values'] = sg.get_archetype_list()
+        self.ship_archetype_combo['values'] = sg.get_archetype_list(lang)
+        self._ship_archetype_label_map = sg.get_archetype_label_map(lang)
         self.ship_archetype_combo.current(0)
         self.ship_archetype_combo.pack(fill=tk.X, pady=(0, 10))
 
-        # Variant
+        # Variant (labels follow UI language; map back to canonical id on submit)
         ttk.Label(parent, text=self.t("Ship Variant:")).pack(anchor="w")
         self.ship_variant_var = tk.StringVar()
         self.ship_variant_combo = ttk.Combobox(parent, textvariable=self.ship_variant_var, state="readonly")
-        self.ship_variant_combo['values'] = sg.get_variant_list()
+        self.ship_variant_combo['values'] = sg.get_variant_list(lang)
+        self._ship_variant_label_map = sg.get_variant_label_map(lang)
         self.ship_variant_combo.current(0)
         self.ship_variant_combo.pack(fill=tk.X, pady=(0, 10))
 
@@ -3117,13 +3119,18 @@ class PromptApp:
 
     def generate_ship_prompt(self):
         tier = self.ship_tier_var.get()
-        archetype = self.ship_archetype_var.get()
-        var = self.ship_variant_var.get()
+        archetype_label = self.ship_archetype_var.get()
+        variant_label = self.ship_variant_var.get()
         manu = self.ship_manufacturer_var.get()
 
-        if not tier or not archetype:
+        if not tier or not archetype_label:
             messagebox.showerror(self.t("Error"), self.t("Please select all options."))
             return
+
+        # Resolve localized UI labels back to the canonical English ids that
+        # the generator core understands.
+        archetype = self._ship_archetype_label_map.get(archetype_label, archetype_label)
+        var = self._ship_variant_label_map.get(variant_label, variant_label)
 
         if manu == "None / Generic":
             manu = None
