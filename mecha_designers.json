@@ -47,7 +47,7 @@
       "work": {"en": "SDF-1 Macross, Yamato refits, Destroid heavy walkers", "zh": "SDF-1 马克罗斯、宇宙战舰大和号、Destroid 重型机甲"},
       "tendency": {"en": "capital-ship and large-hardware designer", "zh": "舰艇与大型机械设计师"},
       "scope": ["ship"],
-      "signature": "Capital-ship and large-hardware specialist. Massive blocky volumes, layered hull greebles with deep recessed shadow zones, antenna mast forests, dreadnought-scale armored superstructure stacks, exposed engine framework with multiple visible thruster bells. Surface treatment: large flat armor plates broken up by dense panel-line clusters, riveted plating, painted hazard markings around access points. Heavy industrial 'lived-in' feel rather than clean factory-fresh. Best applied to ships rather than humanoid machines — when used on humanoid frames the silhouette tends to drift toward squat artillery-platform shapes."
+      "signature": "Capital-ship and large-hardware specialist. Massive blocky volumes, layered hull greebles with deep recessed shadow zones, antenna mast forests, dreadnought-scale armored superstructure stacks, armored aft engine block with multiple thruster bells partially recessed into the armor (framework only glimpsed through armor cutouts and access panels, never hung externally as open scaffolding). Surface treatment: large flat armor plates broken up by dense panel-line clusters, riveted plating, painted hazard markings around access points. Heavy industrial 'lived-in' feel rather than clean factory-fresh. Best applied to ships rather than humanoid machines — when used on humanoid frames the silhouette tends to drift toward squat artillery-platform shapes."
     },
     {
       "name": "Kow Yokoyama",

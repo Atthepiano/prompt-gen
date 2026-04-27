@@ -3,20 +3,19 @@ from typing import Optional, Tuple, List
 
 import requests
 
-
-DEFAULT_MODEL = "gemini-2.0-flash-exp-image-generation"
+# ---------------------------------------------------------------------------
+# Model catalogue (updated April 2026)
+# ---------------------------------------------------------------------------
+DEFAULT_MODEL = "gemini-2.5-flash-image"
 
 IMAGE_MODELS = [
-    "gemini-2.0-flash-exp-image-generation",
+    "gemini-3-pro-image-preview",      # Pro-level, supported by many relays
+    "gemini-3.1-flash-image-preview",
     "gemini-2.5-flash-image",
-    "gemini-3-pro-image-preview",
-    "nano-banana",
-    "nano-banana-pro-preview",
-    "imagen-4.0-generate-preview-06-06",
-    "imagen-4.0-ultra-generate-preview-06-06",
     "imagen-4.0-generate-001",
     "imagen-4.0-ultra-generate-001",
     "imagen-4.0-fast-generate-001",
+    "gemini-2.0-flash-exp-image-generation",
 ]
 
 
@@ -77,12 +76,7 @@ def generate_image_bytes(
         parts.insert(0, {"text": prompt})
 
     payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": parts,
-            }
-        ],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "temperature": 0.7,
             "responseModalities": ["IMAGE"],
@@ -98,11 +92,11 @@ def generate_image_bytes(
         raise GeminiError(f"HTTP {response.status_code}: {response.text}")
 
     data = response.json()
-    image_bytes, mime_type = _extract_image_bytes(data)
-    if not image_bytes:
+    image_bytes_out, mime_type = _extract_image_bytes(data)
+    if not image_bytes_out:
         raise GeminiError("No image data returned. Check model or prompt.")
 
-    return image_bytes, mime_type
+    return image_bytes_out, mime_type
 
 
 def edit_image_bytes(
@@ -110,12 +104,12 @@ def edit_image_bytes(
     image_bytes: bytes,
     image_mime: Optional[str],
     api_key: str,
-    model: str = "gemini-3-pro-image-preview",
+    model: str = DEFAULT_MODEL,
 ) -> Tuple[bytes, Optional[str]]:
     if not api_key:
         raise GeminiError("Missing API key.")
     if not model:
-        model = "gemini-3-pro-image-preview"
+        model = DEFAULT_MODEL
     if not image_bytes:
         raise GeminiError("Missing source image bytes.")
     model_path = normalize_model_name(model)

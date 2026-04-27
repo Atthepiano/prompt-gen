@@ -12,6 +12,7 @@ env/
 # Logs
 *.log
 crash.log
+last_*.txt
 
 # App Outputs
 *_slices/

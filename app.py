@@ -10,6 +10,7 @@ import mecha_generator as mg
 import mecha_part_generator as mpg
 import ship_generator as sg
 import gemini_service as gs
+import core.openai_service as oi
 import slicer_tool as st
 import curation_tool as ct
 import json
@@ -253,8 +254,16 @@ UI_TEXTS_ZH = {
     "Extra modifiers (optional):": "额外修饰（可选）：",
     "GENERATE CHARACTER PROMPT": "生成角色提示词",
     "Settings Panel": "设置面板",
+    "API Provider:": "API 提供商：",
+    "Gemini": "Gemini",
+    "OpenAI": "OpenAI",
     "Gemini API Key:": "Gemini API Key：",
     "Gemini Model:": "Gemini 模型：",
+    "OpenAI API Key:": "OpenAI API Key：",
+    "OpenAI Base URL:": "OpenAI 接口地址（Base URL）：",
+    "OpenAI Model:": "OpenAI 模型：",
+    "Image Size:": "图像尺寸：",
+    "Image Quality:": "图像质量：",
     "Image Save Directory:": "图片保存目录：",
     "Browse...": "浏览...",
     "UI Language:": "界面语言：",
@@ -290,6 +299,7 @@ UI_TEXTS_ZH = {
     "Image discarded.": "图片已丢弃。",
     "Image saved to {path}": "图片已保存到：{path}",
     "Gemini API key is missing.": "缺少 Gemini API Key。",
+    "API key is missing. Please add your key in Settings.": "缺少 API Key，请在设置中填写。",
     "No prompt content to send.": "没有可发送的提示词内容。",
     "Settings saved. Restart the app to apply language changes.": "设置已保存。请重启应用以应用语言变更。",
     "Settings saved.": "设置已保存。",
@@ -431,8 +441,14 @@ class PromptApp:
         self.manufacturer_list = ["None / Generic"] + pg.get_manufacturer_names()
         
         # --- Settings ---
+        self.api_provider = self.config.get("api_provider", "Gemini")  # "Gemini" or "OpenAI"
         self.gemini_api_key = self.config.get("gemini_api_key", "")
         self.gemini_model = self.config.get("gemini_model", gs.DEFAULT_MODEL)
+        self.openai_api_key = self.config.get("openai_api_key", "")
+        self.openai_base_url = self.config.get("openai_base_url", oi.DEFAULT_BASE_URL)
+        self.openai_model = self.config.get("openai_model", oi.DEFAULT_MODEL)
+        self.openai_image_size = self.config.get("openai_image_size", "1024x1024")
+        self.openai_image_quality = self.config.get("openai_image_quality", "auto")
         self.image_save_dir = self.config.get("image_save_dir", "outputs")
         self.spaceship_save_dir = self.config.get("spaceship_save_dir", "")
         self.items_save_dir = self.config.get("items_save_dir", "")
@@ -829,6 +845,10 @@ class PromptApp:
         age_frame = ttk.Frame(frame_base)
         age_frame.grid(row=0, column=3, sticky="ew", padx=(5, 0))
         age_frame.columnconfigure(0, weight=1)
+        # NOTE: ttk.Scale.set() triggers the `command` callback synchronously,
+        # which calls _update_age_label() — so age_value_label MUST exist
+        # before we call age_scale.set(). Create the label first.
+        self.age_value_label = ttk.Label(age_frame, text="")
         self.age_scale = ttk.Scale(
             age_frame,
             from_=10,
@@ -838,7 +858,6 @@ class PromptApp:
         )
         self.age_scale.set(self.age_var.get())
         self.age_scale.grid(row=0, column=0, sticky="ew")
-        self.age_value_label = ttk.Label(age_frame, text="")
         self.age_value_label.grid(row=0, column=1, sticky="e", padx=(6, 0))
         self._update_age_label()
 
@@ -1451,9 +1470,9 @@ class PromptApp:
         ):
             messagebox.showerror(self.t("Error"), self.t("Select character and clothing images first."))
             return
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        _, api_key, _, _ = self._get_active_api_credentials()
         if not api_key:
-            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            messagebox.showerror(self.t("Error"), self.t("API key is missing. Please add your key in Settings."))
             return
         output_name = self.swap_output_name_var.get().strip() or "swap_preview"
         prompt = self._build_outfit_swap_prompt()
@@ -1474,15 +1493,11 @@ class PromptApp:
         ).start()
 
     def _run_outfit_swap_task(self, prompt: str, character_path: str, clothing_path: str):
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
-        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
         try:
             character_blob = self._load_image_blob(character_path)
             clothing_blob = self._load_image_blob(clothing_path)
-            image_bytes, mime_type = gs.generate_image_bytes(
+            image_bytes, mime_type = self._generate_image_with_active_provider(
                 prompt,
-                api_key=api_key,
-                model=model,
                 reference_images=[character_blob, clothing_blob],
                 text_last=True,
             )
@@ -1748,9 +1763,9 @@ class PromptApp:
         if not entry.image_path or not os.path.exists(entry.image_path):
             messagebox.showerror(self.t("Error"), self.t("File no longer exists."))
             return
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        _, api_key, _, _ = self._get_active_api_credentials()
         if not api_key:
-            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            messagebox.showerror(self.t("Error"), self.t("API key is missing. Please add your key in Settings."))
             return
 
         # 读图片字节，写入主预览状态（复用 open_edit_dialog 的现有路径）
@@ -1798,25 +1813,83 @@ class PromptApp:
         parent = self.tab_settings
 
         ttk.Label(parent, text=self.t("Settings Panel"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
-        
-        # Gemini API
-        frame_api = ttk.LabelFrame(parent, text="Gemini", padding=5)
-        frame_api.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(frame_api, text=self.t("Gemini API Key:")).grid(row=0, column=0, sticky="w")
+
+        # ── API Provider selector ──────────────────────────────────────────
+        self.frame_provider = ttk.LabelFrame(parent, text=self.t("API Provider:"), padding=5)
+        self.frame_provider.pack(fill=tk.X, pady=(0, 6))
+
+        self.provider_var = tk.StringVar(value=self.api_provider)
+        for prov in ("Gemini", "OpenAI"):
+            ttk.Radiobutton(
+                self.frame_provider, text=self.t(prov), variable=self.provider_var,
+                value=prov, command=self._on_provider_changed,
+            ).pack(side=tk.LEFT, padx=8)
+
+        # ── Gemini section ────────────────────────────────────────────────
+        self.frame_gemini = ttk.LabelFrame(parent, text="Gemini", padding=5)
+        self.frame_gemini.pack(fill=tk.X, pady=(0, 6))
+
+        ttk.Label(self.frame_gemini, text=self.t("Gemini API Key:")).grid(row=0, column=0, sticky="w")
         self.api_key_var = tk.StringVar(value=self.gemini_api_key)
-        ttk.Entry(frame_api, textvariable=self.api_key_var).grid(row=0, column=1, sticky="ew", padx=(5, 0))
-        
-        ttk.Label(frame_api, text=self.t("Gemini Model:")).grid(row=1, column=0, sticky="w", pady=(5, 0))
+        ttk.Entry(self.frame_gemini, textvariable=self.api_key_var, show="").grid(
+            row=0, column=1, sticky="ew", padx=(5, 0))
+
+        ttk.Label(self.frame_gemini, text=self.t("Gemini Model:")).grid(row=1, column=0, sticky="w", pady=(5, 0))
         self.model_var = tk.StringVar(value=self.gemini_model)
-        model_options = list(gs.IMAGE_MODELS)
-        if self.gemini_model and self.gemini_model not in model_options and self.gemini_model.replace("models/", "") not in model_options:
-            model_options.insert(0, self.gemini_model.replace("models/", ""))
-        self.model_combo = ttk.Combobox(frame_api, textvariable=self.model_var, state="readonly")
-        self.model_combo["values"] = model_options
+        gemini_model_options = list(gs.IMAGE_MODELS)
+        cur_gm = self.gemini_model.replace("models/", "")
+        if cur_gm and cur_gm not in gemini_model_options:
+            gemini_model_options.insert(0, cur_gm)
+        self.model_combo = ttk.Combobox(
+            self.frame_gemini, textvariable=self.model_var,
+            values=gemini_model_options, state="readonly")
         self.model_combo.grid(row=1, column=1, sticky="ew", padx=(5, 0), pady=(5, 0))
-        
-        frame_api.columnconfigure(1, weight=1)
+
+        self.frame_gemini.columnconfigure(1, weight=1)
+
+        # ── OpenAI section ────────────────────────────────────────────────
+        self.frame_openai = ttk.LabelFrame(parent, text="OpenAI", padding=5)
+        self.frame_openai.pack(fill=tk.X, pady=(0, 6))
+
+        ttk.Label(self.frame_openai, text=self.t("OpenAI API Key:")).grid(row=0, column=0, sticky="w")
+        self.openai_key_var = tk.StringVar(value=self.openai_api_key)
+        ttk.Entry(self.frame_openai, textvariable=self.openai_key_var, show="").grid(
+            row=0, column=1, sticky="ew", padx=(5, 0))
+
+        ttk.Label(self.frame_openai, text=self.t("OpenAI Base URL:")).grid(row=1, column=0, sticky="w", pady=(5, 0))
+        self.openai_url_var = tk.StringVar(value=self.openai_base_url)
+        ttk.Entry(self.frame_openai, textvariable=self.openai_url_var).grid(
+            row=1, column=1, sticky="ew", padx=(5, 0), pady=(5, 0))
+
+        ttk.Label(self.frame_openai, text=self.t("OpenAI Model:")).grid(row=2, column=0, sticky="w", pady=(5, 0))
+        self.openai_model_var = tk.StringVar(value=self.openai_model)
+        openai_model_options = list(oi.ALL_MODELS)
+        cur_om = self.openai_model
+        if cur_om and cur_om not in openai_model_options:
+            openai_model_options.insert(0, cur_om)
+        self.openai_model_combo = ttk.Combobox(
+            self.frame_openai, textvariable=self.openai_model_var,
+            values=openai_model_options, state="readonly")
+        self.openai_model_combo.grid(row=2, column=1, sticky="ew", padx=(5, 0), pady=(5, 0))
+
+        ttk.Label(self.frame_openai, text=self.t("Image Size:")).grid(row=3, column=0, sticky="w", pady=(5, 0))
+        self.openai_size_var = tk.StringVar(value=self.openai_image_size)
+        self.openai_size_combo = ttk.Combobox(
+            self.frame_openai, textvariable=self.openai_size_var,
+            values=oi.SIZES_GPT_IMAGE, state="readonly")
+        self.openai_size_combo.grid(row=3, column=1, sticky="ew", padx=(5, 0), pady=(5, 0))
+
+        ttk.Label(self.frame_openai, text=self.t("Image Quality:")).grid(row=4, column=0, sticky="w", pady=(5, 0))
+        self.openai_quality_var = tk.StringVar(value=self.openai_image_quality)
+        self.openai_quality_combo = ttk.Combobox(
+            self.frame_openai, textvariable=self.openai_quality_var,
+            values=oi.QUALITY_OPTIONS, state="readonly")
+        self.openai_quality_combo.grid(row=4, column=1, sticky="ew", padx=(5, 0), pady=(5, 0))
+
+        self.frame_openai.columnconfigure(1, weight=1)
+
+        # Apply initial visibility
+        self._on_provider_changed()
         
         # Output directory (global default)
         frame_out = ttk.LabelFrame(parent, text=self.t("Image Save Directory:"), padding=5)
@@ -2421,23 +2494,87 @@ class PromptApp:
             return tab_dir or global_dir
         return global_dir
 
+    def _on_provider_changed(self):
+        """Show/hide Gemini / OpenAI config sections based on selected provider."""
+        provider = self.provider_var.get() if hasattr(self, "provider_var") else self.api_provider
+        if provider == "OpenAI":
+            self.frame_gemini.pack_forget()
+            self.frame_openai.pack(fill=tk.X, pady=(0, 6))
+        else:
+            self.frame_openai.pack_forget()
+            self.frame_gemini.pack(fill=tk.X, pady=(0, 6))
+
+    def _get_active_api_credentials(self):
+        """Return (provider, key, model, extra_kwargs) for the active API provider."""
+        provider = self.provider_var.get() if hasattr(self, "provider_var") else self.api_provider
+        if provider == "OpenAI":
+            key = self.openai_key_var.get().strip() if hasattr(self, "openai_key_var") else self.openai_api_key
+            model = self.openai_model_var.get().strip() if hasattr(self, "openai_model_var") else self.openai_model
+            base_url = self.openai_url_var.get().strip() if hasattr(self, "openai_url_var") else self.openai_base_url
+            size = self.openai_size_var.get() if hasattr(self, "openai_size_var") else self.openai_image_size
+            quality = self.openai_quality_var.get() if hasattr(self, "openai_quality_var") else self.openai_image_quality
+            return "OpenAI", key, model, {"base_url": base_url or oi.DEFAULT_BASE_URL, "size": size, "quality": quality}
+        else:
+            key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+            model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
+            return "Gemini", key, model, {}
+
+    def _generate_image_with_active_provider(self, prompt, reference_images=None, text_last=False):
+        """Route image generation to Gemini or OpenAI based on current settings."""
+        provider, key, model, extra = self._get_active_api_credentials()
+        if not key:
+            raise ValueError("API key is missing.")
+        if provider == "OpenAI":
+            return oi.generate_image_bytes(
+                prompt, api_key=key, model=model,
+                reference_images=reference_images or [], **extra,
+            )
+        else:
+            return gs.generate_image_bytes(
+                prompt, api_key=key, model=model,
+                reference_images=reference_images if reference_images else None,
+                text_last=text_last,
+            )
+
+    def _edit_image_with_active_provider(self, prompt, image_bytes, image_mime):
+        """Route image editing to Gemini or OpenAI based on current settings."""
+        provider, key, model, extra = self._get_active_api_credentials()
+        if not key:
+            raise ValueError("API key is missing.")
+        if provider == "OpenAI":
+            return oi.edit_image_bytes(prompt, image_bytes, image_mime, api_key=key, model=model, **extra)
+        else:
+            return gs.edit_image_bytes(prompt, image_bytes, image_mime, api_key=key, model=model)
+
     def save_settings(self):
         previous_lang = self.ui_lang
         selected_lang = "zh" if self.lang_var.get() == self.t("Chinese") else "en"
-        
+
+        self.api_provider = self.provider_var.get() if hasattr(self, "provider_var") else self.api_provider
         self.gemini_api_key = self.api_key_var.get().strip()
         self.gemini_model = self.model_var.get().strip() or gs.DEFAULT_MODEL
+        self.openai_api_key = self.openai_key_var.get().strip() if hasattr(self, "openai_key_var") else self.openai_api_key
+        self.openai_base_url = self.openai_url_var.get().strip() if hasattr(self, "openai_url_var") else self.openai_base_url
+        self.openai_model = self.openai_model_var.get().strip() if hasattr(self, "openai_model_var") else self.openai_model
+        self.openai_image_size = self.openai_size_var.get() if hasattr(self, "openai_size_var") else self.openai_image_size
+        self.openai_image_quality = self.openai_quality_var.get() if hasattr(self, "openai_quality_var") else self.openai_image_quality
         self.image_save_dir = self.save_dir_var.get().strip() or "outputs"
         self.spaceship_save_dir = self.spaceship_save_dir_var.get().strip()
         self.items_save_dir = self.items_save_dir_var.get().strip()
         self.character_save_dir = self.character_save_dir_var.get().strip()
         self.clothing_save_dir = self.clothing_save_dir_var.get().strip()
-        
+
         self.ui_lang = selected_lang
-        
+
         data = {
+            "api_provider": self.api_provider,
             "gemini_api_key": self.gemini_api_key,
             "gemini_model": self.gemini_model,
+            "openai_api_key": self.openai_api_key,
+            "openai_base_url": self.openai_base_url,
+            "openai_model": self.openai_model,
+            "openai_image_size": self.openai_image_size,
+            "openai_image_quality": self.openai_image_quality,
             "image_save_dir": self.image_save_dir,
             "spaceship_save_dir": self.spaceship_save_dir,
             "items_save_dir": self.items_save_dir,
@@ -2445,7 +2582,7 @@ class PromptApp:
             "clothing_save_dir": self.clothing_save_dir,
             "language": selected_lang,
         }
-        
+
         if self.save_config(data):
             if previous_lang != selected_lang:
                 messagebox.showinfo(self.t("Settings"), self.t("Settings saved. Restart the app to apply language changes."))
@@ -3061,18 +3198,20 @@ class PromptApp:
         ttk.Label(parent, text=self.t("Ship Archetype:")).pack(anchor="w")
         self.ship_archetype_var = tk.StringVar()
         self.ship_archetype_combo = ttk.Combobox(parent, textvariable=self.ship_archetype_var, state="readonly")
-        self.ship_archetype_combo['values'] = sg.get_archetype_list(lang)
+        _archetype_vals = sg.get_archetype_list(lang)
+        self.ship_archetype_combo['values'] = _archetype_vals
         self._ship_archetype_label_map = sg.get_archetype_label_map(lang)
-        self.ship_archetype_combo.current(0)
+        if _archetype_vals: self.ship_archetype_combo.set(_archetype_vals[0])
         self.ship_archetype_combo.pack(fill=tk.X, pady=(0, 10))
 
         # Variant (labels follow UI language; map back to canonical id on submit)
         ttk.Label(parent, text=self.t("Ship Variant:")).pack(anchor="w")
         self.ship_variant_var = tk.StringVar()
         self.ship_variant_combo = ttk.Combobox(parent, textvariable=self.ship_variant_var, state="readonly")
-        self.ship_variant_combo['values'] = sg.get_variant_list(lang)
+        _variant_vals = sg.get_variant_list(lang)
+        self.ship_variant_combo['values'] = _variant_vals
         self._ship_variant_label_map = sg.get_variant_label_map(lang)
-        self.ship_variant_combo.current(0)
+        if _variant_vals: self.ship_variant_combo.set(_variant_vals[0])
         self.ship_variant_combo.pack(fill=tk.X, pady=(0, 10))
 
         # Tier
@@ -3089,7 +3228,7 @@ class PromptApp:
         self.ship_manufacturer_var = tk.StringVar()
         self.ship_manufacturer_combo = ttk.Combobox(parent, textvariable=self.ship_manufacturer_var, state="readonly")
         self.ship_manufacturer_combo['values'] = self.manufacturer_list
-        self.ship_manufacturer_combo.current(0)
+        if self.manufacturer_list: self.ship_manufacturer_combo.set(self.manufacturer_list[0])
         self.ship_manufacturer_combo.pack(fill=tk.X, pady=(0, 10))
 
         # Designer (shared mecha designer pool)
@@ -3522,6 +3661,90 @@ class PromptApp:
             lang=self.ui_lang,
         )
     
+    def _show_openai_prompt_preview(self, prompt: str) -> bool:
+        """Show a modal dialog with the prompt that will actually be sent to OpenAI.
+
+        Shows both the original and sanitized prompts so the user can verify
+        what changed. Returns True to proceed with generation, False to cancel.
+        """
+        from core.prompt_sanitizer import sanitize_for_openai
+        from tkinter.scrolledtext import ScrolledText
+
+        sanitized = sanitize_for_openai(prompt)
+        changed = sanitized != prompt
+        is_zh = self.ui_lang == "zh"
+
+        result = {"proceed": False}
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("发送给 OpenAI 的提示词" if is_zh else "Prompt sent to OpenAI")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+
+        # ── Status banner ────────────────────────────────────────────────────
+        if changed:
+            banner_text = "✓ 已移除画师名称引用，以下为实际发送内容：" if is_zh else "✓ Artist references removed. Text below is what will be sent:"
+            banner_fg = "#1a7f37"
+        else:
+            banner_text = "提示词未做修改（未检测到画师名称）：" if is_zh else "No changes made (no artist references detected):"
+            banner_fg = "#555555"
+
+        banner = tk.Label(dlg, text=banner_text, fg=banner_fg, font=("Arial", 9, "bold"), anchor="w")
+        banner.pack(fill=tk.X, padx=10, pady=(10, 2))
+
+        # ── Sanitized prompt (what OpenAI actually receives) ─────────────────
+        txt = ScrolledText(dlg, wrap=tk.WORD, width=72, height=10, font=("Arial", 9))
+        txt.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 6))
+        txt.insert("1.0", sanitized)
+        txt.config(state=tk.DISABLED)  # read-only so copy button is the authoritative source
+
+        # ── Original (collapsed, only shown when something changed) ──────────
+        if changed:
+            orig_lbl = "原始提示词（含画师名，供参考）：" if is_zh else "Original prompt (with artist names, for reference):"
+            ttk.Label(dlg, text=orig_lbl, foreground="#888888", font=("Arial", 8)).pack(anchor="w", padx=10, pady=(0, 1))
+            orig_txt = ScrolledText(dlg, wrap=tk.WORD, width=72, height=5,
+                                    font=("Arial", 8), foreground="#888888", background="#f5f5f5")
+            orig_txt.pack(fill=tk.X, padx=10, pady=(0, 6))
+            orig_txt.insert("1.0", prompt)
+            orig_txt.config(state=tk.DISABLED)
+
+        # ── Buttons ──────────────────────────────────────────────────────────
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        def copy_sanitized():
+            content = sanitized  # always copy the sanitized version, not widget text
+            dlg.clipboard_clear()
+            dlg.clipboard_append(content)
+            copy_btn.config(text="✓ " + ("已复制！" if is_zh else "Copied!"))
+            dlg.after(1500, lambda: copy_btn.config(text=copy_lbl))
+
+        def on_generate():
+            result["proceed"] = True
+            dlg.destroy()
+
+        def on_cancel():
+            dlg.destroy()
+
+        copy_lbl = "复制已过滤内容" if is_zh else "Copy (filtered)"
+        gen_lbl  = "生成" if is_zh else "Generate"
+        cxl_lbl  = "取消" if is_zh else "Cancel"
+
+        copy_btn = ttk.Button(btn_frame, text=copy_lbl, command=copy_sanitized)
+        copy_btn.pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text=cxl_lbl,  command=on_cancel).pack(side=tk.RIGHT, padx=(4, 0))
+        ttk.Button(btn_frame, text=gen_lbl,  command=on_generate).pack(side=tk.RIGHT)
+
+        # Centre on parent window
+        dlg.update_idletasks()
+        pw, ph = self.root.winfo_width(), self.root.winfo_height()
+        px, py = self.root.winfo_x(), self.root.winfo_y()
+        dw, dh = dlg.winfo_width(), dlg.winfo_height()
+        dlg.geometry(f"+{px + (pw - dw) // 2}+{py + (ph - dh) // 2}")
+
+        self.root.wait_window(dlg)
+        return result["proceed"]
+
     def generate_image_threaded(self):
         current_tab = self.notebook.select()
 
@@ -3539,9 +3762,9 @@ class PromptApp:
         elif current_tab == str(self.tab_clothing):
             self.generate_clothing_prompt()
 
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        provider, api_key, _, _ = self._get_active_api_credentials()
         if not api_key:
-            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            messagebox.showerror(self.t("Error"), self.t("API key is missing. Please add your key in Settings."))
             return
 
         reference_images = self._get_style_reference_images()
@@ -3572,6 +3795,12 @@ class PromptApp:
         if not prompt:
             messagebox.showerror(self.t("Error"), self.t("No prompt content to send."))
             return
+
+        # When using OpenAI, show the sanitized prompt before sending so the
+        # user can inspect and copy it for verification on the official site.
+        if provider == "OpenAI":
+            if not self._show_openai_prompt_preview(prompt):
+                return
 
         try:
             count = int(self.concurrent_var.get() or "1")
@@ -3638,14 +3867,9 @@ class PromptApp:
         ttk.Button(btn_row, text=self.t("Cancel"), command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
     
     def _generate_image_task(self, prompt: str, reference_images=None):
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
-        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
-        
         try:
-            image_bytes, mime_type = gs.generate_image_bytes(
+            image_bytes, mime_type = self._generate_image_with_active_provider(
                 prompt,
-                api_key=api_key,
-                model=model,
                 reference_images=reference_images,
             )
             self.pending_images = []
@@ -3672,26 +3896,22 @@ class PromptApp:
         if not self.pending_image_bytes:
             messagebox.showerror(self.t("Error"), self.t("No image to edit."))
             return
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
+        _, api_key, _, _ = self._get_active_api_credentials()
         if not api_key:
-            messagebox.showerror(self.t("Error"), self.t("Gemini API key is missing."))
+            messagebox.showerror(self.t("Error"), self.t("API key is missing. Please add your key in Settings."))
             return
         self.set_ui_busy(True, self.t("Editing Image..."))
         threading.Thread(target=self._edit_image_task, args=(edit_prompt,), daemon=True).start()
 
     def _edit_image_task(self, edit_prompt: str):
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
-        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
         image_bytes = self.pending_image_bytes
         image_mime = self.pending_image_mime
 
         try:
-            edited_bytes, mime_type = gs.edit_image_bytes(
+            edited_bytes, mime_type = self._edit_image_with_active_provider(
                 edit_prompt,
                 image_bytes=image_bytes,
                 image_mime=image_mime,
-                api_key=api_key,
-                model=model,
             )
             self.edit_undo_stack.append({"bytes": image_bytes, "mime": image_mime})
             self.pending_image_bytes = edited_bytes
@@ -3706,11 +3926,8 @@ class PromptApp:
             self.root.after(0, lambda: self.set_ui_busy(False, self.t("Error Occurred")))
 
     def _generate_images_task(self, prompt: str, reference_images, count: int):
-        api_key = self.api_key_var.get().strip() if hasattr(self, "api_key_var") else self.gemini_api_key
-        model = self.model_var.get().strip() if hasattr(self, "model_var") else self.gemini_model
-
         def worker():
-            return gs.generate_image_bytes(prompt, api_key=api_key, model=model, reference_images=reference_images)
+            return self._generate_image_with_active_provider(prompt, reference_images=reference_images)
 
         results = []
         try:

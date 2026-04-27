@@ -26,12 +26,12 @@
       "name_zh": "护卫舰",
       "role": "small fast multi-role escort space warship",
       "unique_anchor": "narrow gun-barrel hull profile — overall length-to-width ratio is extreme, like a single rifle barrel stretched in space, with a single continuous dorsal gun spine running nose-to-tail",
-      "silhouette": "elongated narrow armored hull oriented along its long axis, blocky forward command block stepped up from the dorsal spine, exposed rear engine block with multiple thruster bells",
+      "silhouette": "elongated narrow armored hull oriented along its long axis, blocky forward command block stepped up from the dorsal spine, armored aft engine block with thruster bells partially recessed into the armor",
       "features_pool": [
         "low-profile stepped armored command block forward, integrated into the dorsal hull",
         "dorsal turret battery row with cylindrical cannon turrets",
         "ventral sensor blister",
-        "exposed rear quad main thruster bells",
+        "armored aft engine block with quad main thruster bells partially recessed into the armor plate",
         "side-mounted reaction-control vernier clusters",
         "amidships antenna mast with multiple radar dishes",
         "armored bow with reinforced ram prow"
@@ -50,7 +50,7 @@
         "armored wedge-shaped bow with ram prow",
         "twin-tier aft superstructure block with horizontal viewport bands",
         "side sponson turret mounts running along the flanks",
-        "rear engine cluster of four to six exposed main drive bells",
+        "armored aft engine block housing four to six main drive bells partially recessed into the armor",
         "communications mast cluster on the dorsal spine",
         "ventral missile silo grid line",
         "low-profile armored command block with horizontal viewport slits"
@@ -64,12 +64,12 @@
       "name_zh": "巡洋舰",
       "role": "main-line capital space warship and squadron flagship",
       "unique_anchor": "tiered stepped armored superstructure rising in two or three distinct vertical stages from the dorsal spine amidships, with stacked broadside turret rows on each tier — silhouette reads as a layered armored fortress, longer and more massive than a frigate but lacking battleship-scale main turrets fore and aft",
-      "silhouette": "broad armored hull with a layered tiered armored superstructure block rising from the dorsal spine, multiple gun turret tiers, massive exposed aft engine block",
+      "silhouette": "broad armored hull with a layered tiered armored superstructure block rising from the dorsal spine, multiple gun turret tiers, massive armored aft engine block with recessed thruster bells",
       "features_pool": [
         "tiered main beam-cannon turret batteries on the dorsal spine",
         "armored stepped command block amidships, integrated into the hull rather than perched on top",
         "side broadside cannon turret rows",
-        "massive exposed aft engine block with six or more main thruster bells",
+        "massive armored aft engine block with six or more main thruster bells partially recessed into a thick armored mounting plate",
         "dorsal radar dome cluster",
         "armor belt with riveted plating along the flanks",
         "secondary anti-fighter turret rings ringing the upper hull"
@@ -83,14 +83,14 @@
       "name_zh": "主力舰",
       "role": "fleet flagship space dreadnought",
       "unique_anchor": "triple-barrel main beam-cannon turrets mounted both fore AND aft (a defining battleship signature absent on cruisers), plus a tall vertically-rising armored command citadel — overall mass and turret armament dwarfs a cruiser",
-      "silhouette": "massive armored hull with a tall armored command block rising vertically from the dorsal spine, triple-barrel main turrets fore and aft, armored citadel amidships, exposed rear mega-engine block",
+      "silhouette": "massive armored hull with a tall armored command block rising vertically from the dorsal spine, triple-barrel main turrets fore and aft, armored citadel amidships, armored aft mega-engine block with recessed thruster bells",
       "features_pool": [
         "triple-barrel main beam-cannon turrets fore and aft",
         "tall stepped armored command block with banded horizontal viewport tiers",
         "armored citadel midsection with bolted rivet courses",
         "rows of secondary anti-fighter turrets along the flanks",
         "armored bow with massive ram prow and forward-mounted prow main cannon",
-        "massive exposed aft mega-engine block with eight or more main thruster bells",
+        "massive armored aft mega-engine block with eight or more main thruster bells partially recessed into a thick armored mounting plate",
         "fleet command antenna mast cluster"
       ],
       "scale_note": "flagship class, multi-kilometer space dreadnought",
@@ -102,17 +102,17 @@
       "name_zh": "母舰",
       "role": "modular bipedal-machine carrier — a space WARSHIP that carries and launches piloted bipedal combat machines via forward-firing catapults, NOT a real-world ocean-going aircraft carrier",
       "unique_anchor": "vertically-thick armored hull whose forward third splits into a wide longitudinal launch channel running fore-to-aft along the centerline, exiting face-first out the bow opening — the channel is the single defining visual feature",
-      "silhouette": "vertically-thick block-shaped armored hull with a longitudinal forward launch channel along the centerline, two outboard hangar sponsons running parallel along the flanks, low-profile dorsal command block flush with the hull, exposed rear engine framework cradle",
+      "silhouette": "vertically-thick block-shaped armored hull with a longitudinal forward launch channel along the centerline, two outboard hangar sponsons running parallel along the flanks, low-profile dorsal command block flush with the hull, armored aft engine block with thruster bells recessed into the armor",
       "features_pool": [
         "longitudinal forward launch channel running along the centerline of the bow",
         "centerline forward catapult tunnel exiting face-first out the bow opening",
         "low-profile stepped armored command block integrated flush into the dorsal spine, with horizontal viewport bands",
         "two outboard modular hangar sponsons running parallel along the flanks, each with its own forward catapult exit",
-        "exposed rear engine framework cradle holding four to eight large thruster bells",
+        "armored aft engine block — a thick armored mounting plate housing four to eight large thruster bells partially recessed into the armor, with internal framework only glimpsed through armor cutouts and access panels",
         "dorsal beam-cannon turret pair amidships",
         "armor belt with riveted plating, asymmetric bolt-on hangar modules",
         "secondary missile launcher recesses along the flanks",
-        "antenna cluster and exposed conduit greebles on the upper hull"
+        "antenna cluster and recessed conduit greebles set into the upper hull armor"
       ],
       "scale_note": "large space warship carrier class, kilometer-scale, designed to deploy bipedal combat machines via forward-firing bow catapults",
       "carries_mecha": true
@@ -157,20 +157,53 @@
     }
   ],
   "variants": [
-    {"id": "Standard", "name_en": "Standard", "name_zh": "标准型", "descriptor": ""},
-    {"id": "Block-II Refit", "name_en": "Block-II Refit", "name_zh": "Block-II 改装",
-     "descriptor": "STRUCTURAL VARIANT: Block-II refit — additional bolted-on armor panels, upgraded sensor mast, visible mid-life modernization seams."},
-    {"id": "Civilian Variant", "name_en": "Civilian Variant", "name_zh": "民用改型",
-     "descriptor": "STRUCTURAL VARIANT: Civilian conversion — turrets removed or faired over, additional cargo blisters and viewport rows added, civilian livery panel layout."},
-    {"id": "Pirate Conversion", "name_en": "Pirate Conversion", "name_zh": "海盗改装",
-     "descriptor": "STRUCTURAL VARIANT: Pirate conversion — mismatched salvaged armor patches, jury-rigged extra weapon mounts welded on, asymmetric bolt-on hull modifications and exposed cabling."},
-    {"id": "Stealth Variant", "name_en": "Stealth Variant", "name_zh": "隐身型",
-     "descriptor": "STRUCTURAL VARIANT: Stealth configuration — flush faceted radar-absorbent paneling, recessed vents, no protruding antennas, minimal external greebles."},
-    {"id": "Prototype", "name_en": "Prototype", "name_zh": "原型机",
-     "descriptor": "STRUCTURAL VARIANT: Prototype — exposed test instrumentation harnesses, unpainted primer-grey panels alongside finished sections, hand-stenciled trial unit markings, visible experimental sensor pods bolted to non-standard locations."},
-    {"id": "Ceremonial Flagship", "name_en": "Ceremonial Flagship", "name_zh": "仪典旗舰",
-     "descriptor": "STRUCTURAL VARIANT: Ceremonial flagship livery — ornate dress paneling and gilded trim along the armor belt, oversized fleet command antenna mast, ceremonial banners or insignia plates affixed to the dorsal hull, polished parade-ground finish on all visible surfaces."},
-    {"id": "Battle-Damaged", "name_en": "Battle-Damaged", "name_zh": "战损型",
-     "descriptor": "STRUCTURAL VARIANT: Heavily battle-damaged — torn armor plating with jagged edges, exposed internal frame structure in damaged sections, scorched and blackened paint around impact zones, missing turrets or antenna stubs, makeshift welded patch repairs over hull breaches."}
+    {
+      "id": "Standard",
+      "name_en": "Standard",
+      "name_zh": "标准型",
+      "descriptor": ""
+    },
+    {
+      "id": "Block-II Refit",
+      "name_en": "Block-II Refit",
+      "name_zh": "Block-II 改装",
+      "descriptor": "STRUCTURAL VARIANT: Block-II refit — additional bolted-on armor panels, upgraded sensor mast, visible mid-life modernization seams."
+    },
+    {
+      "id": "Civilian Variant",
+      "name_en": "Civilian Variant",
+      "name_zh": "民用改型",
+      "descriptor": "STRUCTURAL VARIANT: Civilian conversion — turrets removed or faired over, additional cargo blisters and viewport rows added, civilian livery panel layout."
+    },
+    {
+      "id": "Pirate Conversion",
+      "name_en": "Pirate Conversion",
+      "name_zh": "海盗改装",
+      "descriptor": "STRUCTURAL VARIANT: Pirate conversion — mismatched salvaged armor patches, jury-rigged extra weapon mounts welded on, asymmetric bolt-on hull modifications and exposed cabling."
+    },
+    {
+      "id": "Stealth Variant",
+      "name_en": "Stealth Variant",
+      "name_zh": "隐身型",
+      "descriptor": "STRUCTURAL VARIANT: Stealth configuration — flush faceted radar-absorbent paneling, recessed vents, no protruding antennas, minimal external greebles."
+    },
+    {
+      "id": "Prototype",
+      "name_en": "Prototype",
+      "name_zh": "原型机",
+      "descriptor": "STRUCTURAL VARIANT: Prototype — exposed test instrumentation harnesses, unpainted primer-grey panels alongside finished sections, hand-stenciled trial unit markings, visible experimental sensor pods bolted to non-standard locations."
+    },
+    {
+      "id": "Ceremonial Flagship",
+      "name_en": "Ceremonial Flagship",
+      "name_zh": "仪典旗舰",
+      "descriptor": "STRUCTURAL VARIANT: Ceremonial flagship livery — ornate dress paneling and gilded trim along the armor belt, oversized fleet command antenna mast, ceremonial banners or insignia plates affixed to the dorsal hull, polished parade-ground finish on all visible surfaces."
+    },
+    {
+      "id": "Battle-Damaged",
+      "name_en": "Battle-Damaged",
+      "name_zh": "战损型",
+      "descriptor": "STRUCTURAL VARIANT: Heavily battle-damaged — torn armor plating with jagged edges, exposed internal frame structure in damaged sections, scorched and blackened paint around impact zones, missing turrets or antenna stubs, makeshift welded patch repairs over hull breaches."
+    }
   ]
 }

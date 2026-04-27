@@ -2,15 +2,20 @@
 
 Generates a 2x2 four-view reference sheet prompt for a complete spaceship of a
 given archetype (fighter / corvette / frigate / cruiser / battleship / carrier /
-freighter / industrial). Reuses ComponentGenerator's layout / view / art style
-helpers; defines its own subject description with archetype-driven silhouette
-and an optional designer signature.
+freighter / industrial). Reuses ComponentGenerator's layout / view helpers but
+overrides the art style with a 1985-1995 Japanese mecha OVA capital-ship
+aesthetic, and injects two universal directives (three-act composition + surface
+detail density) that drive the difference between a "toy block" and a real
+capital-ship illustration.
 
 Carrier archetype is the only class that exposes a modular mecha hangar bay,
 which keeps the rest of the fleet decoupled from the mecha system.
 """
 import json
+import logging
+import os
 import random
+import sys
 from typing import Dict, List, Optional
 
 from paths import resource_path
@@ -18,19 +23,64 @@ from . import prompt_generator as pg
 from . import mecha_generator as mg
 
 
+log = logging.getLogger(__name__)
+
 ARCHETYPES_PATH = resource_path("ship_archetypes.json")
 
 
-def _load_data() -> Dict:
+def _emit_load_error(msg: str) -> None:
+    """Surface a data-load failure on every available channel.
+
+    This runs at import time, BEFORE init_app_logging() configures handlers,
+    so we also write directly to stderr — otherwise the failure would be
+    silently swallowed and the UI would crash later with a confusing
+    `Index 0 out of range` from an empty Combobox.
+    """
+    log.error(msg)
     try:
-        with open(ARCHETYPES_PATH, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        if isinstance(data, dict):
-            return data
-        if isinstance(data, list):
-            return {"archetypes": data, "variants": []}
-    except (OSError, json.JSONDecodeError):
+        sys.stderr.write("[ship_generator] " + msg + "\n")
+        sys.stderr.flush()
+    except Exception:
         pass
+
+
+def _load_data() -> Dict:
+    if not os.path.exists(ARCHETYPES_PATH):
+        _emit_load_error(
+            "ship_archetypes.json NOT FOUND at %s — UI will start with an "
+            "empty archetype list. Restore the file from the repo root."
+            % ARCHETYPES_PATH
+        )
+        return {"archetypes": [], "variants": []}
+    try:
+        with open(ARCHETYPES_PATH, "r", encoding="utf-8-sig") as fh:
+            text = fh.read()
+    except OSError as e:
+        _emit_load_error(
+            "Failed to read ship_archetypes.json (%s): %s" % (ARCHETYPES_PATH, e)
+        )
+        return {"archetypes": [], "variants": []}
+
+    # Use raw_decode so any trailing whitespace or stray bytes after the
+    # first complete JSON value are silently ignored. Python 3.14's strict
+    # json.load() rejects trailing data, which previously bit this project
+    # when an editor saved a stray newline past the closing brace.
+    try:
+        data, _end = json.JSONDecoder().raw_decode(text.lstrip())
+    except json.JSONDecodeError as e:
+        _emit_load_error(
+            "ship_archetypes.json is not valid JSON (%s): %s" % (ARCHETYPES_PATH, e)
+        )
+        return {"archetypes": [], "variants": []}
+
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list):
+        return {"archetypes": data, "variants": []}
+    _emit_load_error(
+        "ship_archetypes.json has unexpected top-level type %s — expected dict or list"
+        % type(data).__name__
+    )
     return {"archetypes": [], "variants": []}
 
 
@@ -43,31 +93,19 @@ def load_variants() -> List[Dict]:
 
 
 ARCHETYPES = load_archetypes()
+if not ARCHETYPES:
+    _emit_load_error(
+        "ARCHETYPES is empty after load — downstream Combobox.current(0) "
+        "calls will fail. Check ship_archetypes.json for parse errors above."
+    )
 ARCHETYPE_BY_NAME: Dict[str, Dict] = {a["name"]: a for a in ARCHETYPES}
 
 VARIANTS = load_variants()
-# Fallback for older JSON files that lacked the "variants" key.
 if not VARIANTS:
     VARIANTS = [
         {"id": "Standard", "name_en": "Standard", "name_zh": "标准型", "descriptor": ""},
-        {"id": "Block-II Refit", "name_en": "Block-II Refit", "name_zh": "Block-II 改装",
-         "descriptor": "STRUCTURAL VARIANT: Block-II refit — additional bolted-on armor "
-                      "panels, upgraded sensor mast, visible mid-life modernization seams."},
-        {"id": "Civilian Variant", "name_en": "Civilian Variant", "name_zh": "民用改型",
-         "descriptor": "STRUCTURAL VARIANT: Civilian conversion — turrets removed or "
-                      "faired over, additional cargo blisters and viewport rows added, "
-                      "civilian livery panel layout."},
-        {"id": "Pirate Conversion", "name_en": "Pirate Conversion", "name_zh": "海盗改装",
-         "descriptor": "STRUCTURAL VARIANT: Pirate conversion — mismatched salvaged armor "
-                      "patches, jury-rigged extra weapon mounts welded on, asymmetric "
-                      "bolt-on hull modifications and exposed cabling."},
-        {"id": "Stealth Variant", "name_en": "Stealth Variant", "name_zh": "隐身型",
-         "descriptor": "STRUCTURAL VARIANT: Stealth configuration — flush faceted radar-"
-                      "absorbent paneling, recessed vents, no protruding antennas, minimal "
-                      "external greebles."},
     ]
 
-# Back-compat: legacy code referenced SHIP_VARIANTS as a list of names.
 SHIP_VARIANTS: List[str] = [v["id"] for v in VARIANTS]
 VARIANT_BY_ID: Dict[str, Dict] = {v["id"]: v for v in VARIANTS}
 
@@ -75,7 +113,6 @@ VARIANT_BY_ID: Dict[str, Dict] = {v["id"]: v for v in VARIANTS}
 # --- Archetype helpers ---
 
 def get_archetype_names() -> List[str]:
-    """Canonical (English) archetype names — used by the generator core."""
     return [a["name"] for a in ARCHETYPES]
 
 
@@ -84,15 +121,12 @@ def get_archetype(name: str) -> Optional[Dict]:
 
 
 def get_archetype_list(lang: str = "en") -> List[str]:
-    """Localized labels for the UI dropdown."""
     if lang == "zh":
         return [a.get("name_zh") or a["name"] for a in ARCHETYPES]
     return [a["name"] for a in ARCHETYPES]
 
 
 def get_archetype_label_map(lang: str = "en") -> Dict[str, str]:
-    """label (localized) -> canonical English name. UI passes the canonical
-    name back to the generator regardless of display language."""
     if lang == "zh":
         return {(a.get("name_zh") or a["name"]): a["name"] for a in ARCHETYPES}
     return {a["name"]: a["name"] for a in ARCHETYPES}
@@ -101,14 +135,12 @@ def get_archetype_label_map(lang: str = "en") -> Dict[str, str]:
 # --- Variant helpers ---
 
 def get_variant_list(lang: str = "en") -> List[str]:
-    """Localized labels for the UI dropdown."""
     if lang == "zh":
         return [v.get("name_zh") or v["name_en"] for v in VARIANTS]
     return [v["name_en"] for v in VARIANTS]
 
 
 def get_variant_label_map(lang: str = "en") -> Dict[str, str]:
-    """label (localized) -> canonical id. UI passes the id back to the generator."""
     if lang == "zh":
         return {(v.get("name_zh") or v["name_en"]): v["id"] for v in VARIANTS}
     return {v["name_en"]: v["id"] for v in VARIANTS}
@@ -131,9 +163,11 @@ _CARRIER_DIRECTIVE = (
     "run parallel along the flanks as modular bolted-on extensions. The dorsal command "
     "block is a low-profile stepped armored structure integrated FLUSH into the dorsal "
     "spine amidships with horizontal viewport bands — NOT a separate tower, NOT shaped "
-    "like an animal or human face. The rear is an exposed engine framework cradle "
-    "holding multiple large thruster bells. Do NOT draw any piloted machines inside or "
-    "around the ship — only the carrier infrastructure itself."
+    "like an animal or human face. The rear is an armored aft engine block — a thick "
+    "armored mounting plate housing multiple large thruster bells partially recessed "
+    "into the armor, with internal framework only glimpsed through armor cutouts and "
+    "access panels (NOT an exposed scaffolding rig). Do NOT draw any piloted machines "
+    "inside or around the ship — only the carrier infrastructure itself."
 )
 
 _CARRIER_NEGATIVE = (
@@ -145,6 +179,95 @@ _CARRIER_NEGATIVE = (
     "- NO aircraft, jets, planes, helicopters, or piloted machines parked on a top surface\n"
     "- NO vehicles launched from above — all launches exit FORWARD out the bow\n"
     "- NO command tower shaped like an animal or human head/face"
+)
+
+
+# --- Universal capital-ship directives ---
+
+_THREE_ACT_COMPOSITION = (
+    "THREE-ACT MECHA-DESIGN COMPOSITION (mandatory — this is the load-bearing "
+    "structural rule for capital-class vessels):\n"
+    "The hull MUST read as three clearly differentiated longitudinal acts along "
+    "its long axis, NOT as a single uniform extruded block and NOT as a smooth "
+    "tapered cigar shape. Each act must be visually distinct from its neighbors "
+    "in silhouette, surface treatment, and detail vocabulary.\n"
+    "  Act 1 — FORWARD ATTACK MODULE (front third): an aggressive, visually "
+    "pointed, splayed, or chisel-faced prow carrying the heaviest concentration "
+    "of weapons, sensors, or launch infrastructure. This act sets the vessel's "
+    "'face' and must be the most directional element of the silhouette.\n"
+    "  Act 2 — CENTRAL COMMAND CITADEL (middle third): a vertically-stacked, "
+    "multi-tier armored superstructure that is visually denser and taller than "
+    "the bow or stern, bristling with antenna masts, sensor dishes, and "
+    "secondary turrets. This act sets the vessel's 'character' and is the "
+    "primary visual focal point.\n"
+    "  Act 3 — ARMORED AFT ENGINE BLOCK (back third): a thick armored mounting "
+    "plate housing multiple large thruster bells, with the bells PARTIALLY "
+    "RECESSED into the armor (NOT hung off open girders, NOT mounted on naked "
+    "trusses). Internal structural framework, conduit runs, and engine "
+    "greebling are PARTIALLY VISIBLE through armor cutouts, access panels, "
+    "and inspection windows — they are glimpsed THROUGH the armor, never "
+    "fully exposed on the outside. This act must read as a fortified armored "
+    "engine module that conveys raw mechanical power — NOT as an open "
+    "scaffolding rig, NOT as an oil-derrick framework, NOT as exposed steel "
+    "trusswork."
+)
+
+_SURFACE_DENSITY_DIRECTIVE = (
+    "SURFACE DETAIL DENSITY (mandatory — this is what separates a capital-ship "
+    "illustration from a toy mockup):\n"
+    "  - HUNDREDS of small lighted viewports, portholes, and access hatches "
+    "scattered densely across the entire hull surface. Each viewport must be "
+    "sized as a human-scale crew port — they act as the implicit scale "
+    "reference that makes the vessel read as 500 to 2000 meters long.\n"
+    "  - Every large armor face MUST be subdivided by visible panel-line work "
+    "into smaller sub-panels with clear seam lines and rivet courses — "
+    "absolutely NO smooth featureless slab surfaces.\n"
+    "  - Antenna mast forests, parabolic dish clusters, and sensor arrays "
+    "bristling from the dorsal spine and command citadel.\n"
+    "  - Recessed conduit channels, panel seams, and inset cable trays at the "
+    "joints between major hull modules — detail lives WITHIN the armor "
+    "envelope, NOT as external scaffolding hung off the outside.\n"
+    "  - Stenciled hull numbers, painted unit identification markings, and "
+    "warning chevron stripes around hatches and weapon mounts, used as accent-"
+    "color punctuation against the primary hull tone.\n"
+    "  - 'Symmetric base + asymmetric overlay' rule: the primary hull volume "
+    "is strictly left/right symmetric, but small bolted-on modules, antenna "
+    "mounts, patch panels, and equipment pods are intentionally placed "
+    "asymmetrically to give the vessel a lived-in production history rather "
+    "than a clean factory-fresh look.\n"
+    "  - Hull length-to-height ratio MUST be at least 4:1 — the vessel is a "
+    "long capital ship, not a stubby toy block."
+)
+
+_OVA_ART_STYLE_HEADER = "ART STYLE (Late-1980s to Mid-1990s Japanese Mecha OVA Capital-Ship Aesthetic):"
+_OVA_ART_STYLE_BODY = (
+    "Hand-painted anime production cel artwork in the visual tradition of "
+    "capital-ship illustration by Kazutaka Miyatake, Shoji Kawamori, and "
+    "Junya Ishigaki during the 1985-1995 OVA era. NOT modern 3D rendering, "
+    "NOT video-game UI flat shading, NOT chibi or toy aesthetic, NOT "
+    "photorealistic.\n"
+    "Hard-edged cel-shaded shadow boundaries — one or two flat shadow tones "
+    "per surface — combined with subtle airbrushed gradient transitions "
+    "within the largest armor faces to give the metal weight and curvature.\n"
+    "Bold black ink linework on all silhouette edges; finer ink work for "
+    "panel lines, rivet courses, plate seams, and surface greebles. Line "
+    "weight varies — heavier on the silhouette, finer on internal detail.\n"
+    "Color rhythm (this is the OVA capital-ship signature):\n"
+    "  - PRIMARY hull tone (~70% of surface area): warm grey, pale blue-grey, "
+    "off-white, or muted olive — the calm dominant color.\n"
+    "  - SECONDARY structural tone (~25%): a darker recess color used inside "
+    "engine bells, panel recesses, shadow zones beneath overhanging armor, "
+    "and within the armor cutouts of the aft engine block.\n"
+    "  - ACCENT warning color (~5% — used SPARINGLY): a single saturated red, "
+    "orange, or yellow used only for warning stripes, stenciled hull numbers, "
+    "hazard chevrons around hatches and weapon mounts, and one or two small "
+    "detail callouts. The accent must read as warning paint or unit insignia, "
+    "NOT as primary livery."
+)
+_OVA_ART_STYLE_REMINDER = (
+    "REMINDER: Absolutely NO text, NO labels, NO arrows, NO annotations "
+    "anywhere in the image. NO modern 3D render aesthetic, NO toy-like "
+    "proportions, NO smooth featureless armor faces."
 )
 
 
@@ -173,18 +296,63 @@ class ShipGenerator(pg.ComponentGenerator):
         self.designers = designers or []
         self.archetype = get_archetype(archetype_name) or {}
 
+    def _is_capital_class(self) -> bool:
+        """Three-act composition + 4:1 length clause apply to anything large
+        enough to support a stacked superstructure. Single-pilot fighters are
+        excluded since they have no command citadel."""
+        return self.archetype.get("id") != "fighter"
+
     def _get_ship_negative_prompt(self) -> str:
-        base = ("**SHIP-SPECIFIC FORBIDDEN ELEMENTS:**\n"
-                "- NO crew figures, NO pilots, NO scale-figure silhouettes next to the ship.\n"
-                "- NO planetary background, NO stars, NO nebulae, NO ground terrain — pure white background only.\n"
-                "- NO motion lines, NO engine exhaust trails, NO weapon fire effects.\n"
-                "- NO panel separator lines or grid borders drawn between the four views.\n"
-                "- NO blueprint overlays, NO dimension markings, NO callout arrows.\n"
-                "- NO ocean, NO water, NO sea spray, NO waterline — this is a vessel that operates in vacuum, not on a fluid surface.\n"
-                "- The command structure is a piece of armored equipment, NOT shaped like an animal or human face — NO face features (eyes, mouth, lips, brows), NO crowning antenna 'horns' arranged like ears, NO viewport patterns shaped like a face.")
+        base = (
+            "**SHIP-SPECIFIC FORBIDDEN ELEMENTS:**\n"
+            "- NO crew figures, NO pilots, NO scale-figure silhouettes next to the ship.\n"
+            "- NO planetary background, NO stars, NO nebulae, NO ground terrain — pure white background only.\n"
+            "- NO motion lines, NO engine exhaust trails, NO weapon fire effects.\n"
+            "- NO panel separator lines or grid borders drawn between the four views.\n"
+            "- NO blueprint overlays, NO dimension markings, NO callout arrows.\n"
+            "- NO ocean, NO water, NO sea spray, NO waterline — this is a vessel that operates in vacuum, not on a fluid surface.\n"
+            "- The command structure is a piece of armored equipment, NOT shaped like an animal or human face — NO face features (eyes, mouth, lips, brows), NO crowning antenna 'horns' arranged like ears, NO viewport patterns shaped like a face.\n"
+            "- NO toy-like proportions, NO chibi shapes, NO smooth featureless armor slabs, NO single-color flat panels, NO sparse uncluttered surfaces — the vessel must read as a dense capital-ship illustration, not as a plastic model or game-asset placeholder.\n"
+            "- NO modern photorealistic 3D render aesthetic, NO PBR material shaders, NO ray-traced reflections — this is hand-painted anime cel art.\n"
+            "- **ANTI-SCAFFOLDING REAR-ENGINE NEGATIVE (CRITICAL):** the rear engine section must NOT be drawn as an open scaffolding rig, oil-derrick framework, exposed steel trusswork, or skeletal cradle of girders holding the thrusters in space. The thruster bells are PARTIALLY RECESSED into a thick armored aft engine block; framework is only glimpsed THROUGH armor cutouts and access panels, never hung externally on naked beams."
+        )
         if self.archetype.get("carries_mecha"):
             base += "\n\n" + _CARRIER_NEGATIVE
         return base
+
+    def _get_three_act_composition(self) -> str:
+        return _THREE_ACT_COMPOSITION if self._is_capital_class() else ""
+
+    def _get_surface_density_directive(self) -> str:
+        if self._is_capital_class():
+            return _SURFACE_DENSITY_DIRECTIVE
+        # Strip the 4:1 clause for single-pilot fighters.
+        return "\n".join(
+            line for line in _SURFACE_DENSITY_DIRECTIVE.splitlines()
+            if "length-to-height" not in line and "capital ship" not in line
+        )
+
+    def _get_art_style(self) -> str:
+        """Ship-specific override of the parent's PC-98 art style. Targets the
+        late-1980s to mid-1990s Japanese mecha OVA capital-ship illustration
+        idiom rather than retro game UI. Designer names only — no work titles."""
+        if self.manufacturer_data:
+            palette = self.manufacturer_data["color_palette"]
+        elif self.primary_color and self.secondary_color:
+            palette = (
+                f"{self.primary_color} dominant hull tone, "
+                f"{self.secondary_color} accent and warning markings, "
+                "dark mechanical recess details."
+            )
+        else:
+            palette = self.get_tier_data()["color_palette"]
+        palette_line = f"Color Palette: {palette}"
+        return "\n".join([
+            _OVA_ART_STYLE_HEADER,
+            _OVA_ART_STYLE_BODY,
+            palette_line,
+            _OVA_ART_STYLE_REMINDER,
+        ])
 
     def _designer_signature_line(self) -> str:
         if not self.designers:
@@ -192,11 +360,13 @@ class ShipGenerator(pg.ComponentGenerator):
         names = ", ".join(d["name"] for d in self.designers)
         sigs = "  ".join(d.get("signature", "").strip() for d in self.designers if d.get("signature"))
         sigs = sigs.strip()
-        line = (f"DESIGNER SIGNATURE — DRIVE THE SILHOUETTE FROM THIS: "
-                f"This vessel is designed by {names}, and the entire silhouette, hull "
-                f"proportions, bridge tower style, and engine block treatment must follow "
-                f"that designer's distinctive visual vocabulary as described below.\n"
-                f"Designer vocabulary: {sigs}")
+        line = (
+            f"DESIGNER SIGNATURE — DRIVE THE SILHOUETTE FROM THIS: "
+            f"This vessel is designed by {names}, and the entire silhouette, hull "
+            f"proportions, bridge tower style, and engine block treatment must follow "
+            f"that designer's distinctive visual vocabulary as described below.\n"
+            f"Designer vocabulary: {sigs}"
+        )
         return line
 
     def generate_subject_description(self) -> str:
@@ -222,8 +392,6 @@ class ShipGenerator(pg.ComponentGenerator):
             (f"This is a complete spaceship — a {tier_secondary} {role}. "
              "The vessel is shown as a clean reference sheet, fully isolated."),
         ]
-        # Unique anchor leads — it is the single most important visual cue that
-        # distinguishes this archetype from sibling classes.
         if unique_anchor:
             lines.append(f"Defining visual anchor (must dominate the silhouette): {unique_anchor}.")
         if silhouette:
@@ -235,8 +403,6 @@ class ShipGenerator(pg.ComponentGenerator):
         lines.append(f"Design language: {design_lang}")
         if variant_line:
             lines.append(variant_line)
-        # Carrier directive only appended once, here — silhouette + negative
-        # prompt no longer repeat the same content.
         if arche.get("carries_mecha"):
             lines.append(_CARRIER_DIRECTIVE)
         if feature_prose:
@@ -258,31 +424,29 @@ class ShipGenerator(pg.ComponentGenerator):
         if self.designers:
             subject_name += f" — designed by {', '.join(d['name'] for d in self.designers)}"
 
-        header = (f"# \n\n`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS, "
-                  f"NO PANEL SEPARATOR LINES) showing 4 views of a {subject_name}.")
+        header = (
+            f"# \n\n`A 2x2 grid illustration (NO TEXT, NO LABELS, NO ARROWS, "
+            f"NO PANEL SEPARATOR LINES) showing 4 views of a {subject_name}."
+        )
 
-        return f"""{header}
-
-{self._get_layout_criteria()}
-
-{self._get_negative_prompt()}
-
-{self._get_ship_negative_prompt()}
-
-{self.generate_subject_description()}
-
-{self._get_view_protocol()}
-
-{self._get_art_style()}`
-"""
+        sections = [
+            header,
+            self._get_layout_criteria(),
+            self._get_negative_prompt(),
+            self._get_ship_negative_prompt(),
+            self.generate_subject_description(),
+            self._get_three_act_composition(),
+            self._get_surface_density_directive(),
+            self._get_view_protocol(),
+            self._get_art_style() + "`",
+        ]
+        return "\n\n".join(s for s in sections if s) + "\n"
 
 
 # --- UI helpers ---
 
 def get_designer_options(lang: str = "en") -> List[str]:
-    """Ships filter the designer pool to ship-capable designers only.
-    Capital-ship specialists (Miyatake) and dual-scope designers (Kawamori,
-    Ishigaki) appear; pure humanoid-mecha designers are hidden."""
+    """Filter designer pool to ship-capable designers only."""
     return mg.get_designer_options(lang, scope="ship")
 
 
