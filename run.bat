@@ -1,9 +1,9 @@
 @echo off
-echo Starting Spaceship Prompt Generator GUI...
-python app.py 2> last_error.log
+echo Starting PromptGen Tool...
+python app_qt.py 2> last_error.log
 set RC=%ERRORLEVEL%
 echo.
-echo Application Closed (exit code %RC%).
+echo Application closed (exit code %RC%).
 if not %RC%==0 (
     echo.
     echo =========================================

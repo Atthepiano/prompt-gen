@@ -12,22 +12,19 @@ _labels_to_values = _shared.labels_to_values
 _localize_text = _shared.localize_text
 _get_option_pairs = _shared.get_option_pairs
 
-DEFAULT_STYLE = (
-    "(masterpiece, best quality), late-1980s to early-2000s Japanese mecha OVA or theatrical key visual, "
-    "real-robot anime aesthetic, hand-drawn cel animation still, hand-painted cel shading, "
-    "flat color fills, hard-edged shadow shapes, clean lineart, crisp forms, "
-    "limited palette, subtle color banding, minimal gradients, bold graphic silhouettes, "
-    "utilitarian military sci-fi design, realistic 90s facial proportions, restrained eye highlights, "
-    "cinematic composition, analog texture."
-)
+# ---------------------------------------------------------------------------
+# Default style constants (fallback if character_style.json is absent).
+# Written in natural-language narrative format for NanoBanana / Gemini image models.
+# ---------------------------------------------------------------------------
+# Style prefix only; core 90s descriptors are assembled inline in generate_character_prompt()
+DEFAULT_STYLE = "best quality, masterpiece, 1990s vintage Japanese anime"
 
 DEFAULT_BACKGROUND = "simple pure white background, flat white background, isolated on white."
+
 DEFAULT_MOOD = (
-    "(film grain:1.3), muted colors, vintage OVA atmosphere, hand-painted cel look, "
-    "matte finish, clean paint layers, subtle cel misregistration, analog video texture, "
-    "no oily or glossy look, no modern anime sheen, no oversized eyes, no soft glow, "
-    "no 3d, no cgi, no photorealism, no digital painting look, no painterly brushwork, "
-    "no thick paint, no heavy impasto, no soft focus, no depth of field."
+    "No modern anime sheen, no soft digital glow, no smooth gradients. "
+    "No 3D or CGI rendering, no photorealistic textures, no contemporary digital art style. "
+    "Matte surface quality. No oversized moe-style eyes. No soft focus or depth-of-field blur."
 )
 
 STYLE_CONFIG_PATH = resource_path("character_style.json")
@@ -566,8 +563,7 @@ def get_eye_color_options(lang: str = "en") -> List[str]:
 
 
 
-def _format_subject(
-    framing: str,
+def _build_char_traits(
     gender: Optional[str],
     age: Optional[str],
     body_type: Optional[str],
@@ -589,68 +585,90 @@ def _format_subject(
     jaw_width: Optional[str],
     eye_color: Optional[str],
 ) -> str:
-    descriptors = []
-    if age and age != "Unspecified":
-        descriptors.append(age.lower())
-    if gender and gender != "Unspecified":
-        descriptors.append(gender.lower())
-    if body_type and body_type != "Unspecified":
-        descriptors.append(body_type.lower())
+    """Return a compact comma-separated character trait list for embedding inside
+    the main prompt block.  No framing, no verbose phrasing — mirrors the terse
+    style of the verified reference prompts ('1girl', 'black twin tails hair', etc.)."""
+    parts: List[str] = []
 
-    descriptor_str = " ".join(descriptors)
-    if descriptor_str:
-        subject = f"a {descriptor_str} character"
-    else:
-        subject = "a character"
+    # Compact gender marker  (1girl / 1boy / 1person)
+    _GENDER_MARKERS = {
+        "male":        "1boy",
+        "female":      "1girl",
+        "androgynous": "1person",
+        "non-binary":  "1person",
+    }
+    if gender and gender not in ("Unspecified", ""):
+        parts.append(_GENDER_MARKERS.get(gender.lower(), "1person"))
 
-    features = list(appearance_features)
-    if skin_tone and skin_tone != "Unspecified":
-        features.append(skin_tone)
+    # Age descriptor
+    if age and age not in ("Unspecified", ""):
+        parts.append(age.lower())
+
+    # Body type
+    if body_type and body_type not in ("Unspecified", ""):
+        parts.append(body_type)
+
+    # Skin tone
+    if skin_tone and skin_tone not in ("Unspecified", ""):
+        parts.append(skin_tone)
+
+    # Clothing  (no "wearing" prefix — more compact)
+    if clothing_hint and clothing_hint not in ("Unspecified", ""):
+        parts.append(clothing_hint)
+
+    # Hair
     hair_palette = _colors_to_palette_text(hair_colors)
-    if hair_style and hair_style != "Unspecified":
-        if hair_color and hair_color != "Unspecified":
+    if hair_style and hair_style not in ("Unspecified", ""):
+        if hair_color and hair_color not in ("Unspecified", ""):
             if hair_palette:
-                features.append(f"{hair_style} hair dyed in {hair_palette} tones")
+                parts.append(f"{hair_color} {hair_style} hair in {hair_palette} tones")
             else:
-                features.append(f"{hair_style} {hair_color} hair")
+                parts.append(f"{hair_color} {hair_style} hair")
+        elif hair_palette:
+            parts.append(f"{hair_style} hair in {hair_palette} tones")
         else:
-            if hair_palette:
-                features.append(f"{hair_style} hair dyed in {hair_palette} tones")
-            else:
-                features.append(f"{hair_style} hair")
-    elif hair_color and hair_color != "Unspecified":
-        if hair_palette:
-            features.append(f"hair dyed in {hair_palette} tones")
-        else:
-            features.append(f"{hair_color} hair")
+            parts.append(f"{hair_style} hair")
+    elif hair_color and hair_color not in ("Unspecified", ""):
+        parts.append(f"{hair_color} hair")
     elif hair_palette:
-        features.append(f"hair dyed in {hair_palette} tones")
-    if hair_bangs_presence and hair_bangs_presence != "Unspecified":
-        features.append(hair_bangs_presence)
-    if hair_bangs_style and hair_bangs_style != "Unspecified":
-        features.append(hair_bangs_style)
-    if face_shape and face_shape != "Unspecified":
-        features.append(face_shape)
-    if eye_size and eye_size != "Unspecified":
-        features.append(eye_size)
-    if nose_size and nose_size != "Unspecified":
-        features.append(nose_size)
-    if mouth_shape and mouth_shape != "Unspecified":
-        features.append(mouth_shape)
-    if cheek_fullness and cheek_fullness != "Unspecified":
-        features.append(cheek_fullness)
-    if jaw_width and jaw_width != "Unspecified":
-        features.append(jaw_width)
-    if eye_color and eye_color != "Unspecified":
-        features.append(f"{eye_color} eyes")
+        parts.append(f"hair in {hair_palette} tones")
 
-    feature_text = ""
-    if features:
-        feature_text = " with " + ", ".join(features)
+    # Bangs
+    if hair_bangs_presence and hair_bangs_presence not in ("Unspecified", ""):
+        if hair_bangs_style and hair_bangs_style not in ("Unspecified", ""):
+            parts.append(hair_bangs_style)
+        else:
+            parts.append(hair_bangs_presence)
 
-    clothing_text = f"wearing a {clothing_hint}" if clothing_hint else "wearing a plain neutral garment"
+    # Face shape
+    if face_shape and face_shape not in ("Unspecified", ""):
+        parts.append(face_shape)
 
-    return f"{framing}, {subject} {clothing_text}{feature_text}, {expression}, {gaze}."
+    # Eyes: specific colour only — the rendering style (multi-layered highlights,
+    # hard-edge cel shading) is already stated in the global style descriptor block.
+    if eye_size and eye_size not in ("Unspecified", ""):
+        if eye_color and eye_color not in ("Unspecified", ""):
+            parts.append(f"{eye_size} with {eye_color} irises")
+        else:
+            parts.append(eye_size)
+    elif eye_color and eye_color not in ("Unspecified", ""):
+        parts.append(f"{eye_color} eyes")
+
+    # Other facial features
+    for opt in (nose_size, mouth_shape, cheek_fullness, jaw_width):
+        if opt and opt not in ("Unspecified", ""):
+            parts.append(opt)
+
+    # Extra appearance features
+    parts.extend(f for f in appearance_features if f)
+
+    # Expression + gaze
+    if expression:
+        parts.append(expression)
+    if gaze:
+        parts.append(gaze)
+
+    return ", ".join(parts)
 
 
 def generate_character_prompt(
@@ -684,31 +702,40 @@ def generate_character_prompt(
     include_mood: bool = True,
     include_extra_modifiers: bool = True,
 ) -> str:
-    gender_value = _label_to_value(gender, _make_option_map(GENDER_OPTION_PAIRS, lang))
-    age_value = _age_to_descriptor(age)
-    framing_value = _label_to_value(framing, _make_option_map(FRAMING_OPTION_PAIRS, lang))
-    aspect_ratio_value = _label_to_value(aspect_ratio, _make_option_map(ASPECT_RATIO_OPTION_PAIRS, lang))
-    expression_value = _label_to_value(expression, _make_option_map(EXPRESSION_OPTION_PAIRS, lang))
-    gaze_value = _label_to_value(gaze, _make_option_map(GAZE_OPTION_PAIRS, lang))
-    body_type_value = _label_to_value(body_type, _make_option_map(BODY_TYPE_OPTION_PAIRS, lang))
-    skin_tone_value = _label_to_value(skin_tone, _make_option_map(SKIN_TONE_OPTION_PAIRS, lang))
-    hair_style_value = _label_to_value(hair_style, _make_option_map(HAIR_STYLE_OPTION_PAIRS, lang))
-    hair_color_value = _label_to_value(hair_color, _make_option_map(HAIR_COLOR_OPTION_PAIRS, lang))
+    # ── Resolve all label→value mappings ─────────────────────────────────
+    gender_value         = _label_to_value(gender,          _make_option_map(GENDER_OPTION_PAIRS, lang))
+    age_value            = _age_to_descriptor(age)
+    framing_value        = _label_to_value(framing,         _make_option_map(FRAMING_OPTION_PAIRS, lang))
+    aspect_ratio_value   = _label_to_value(aspect_ratio,    _make_option_map(ASPECT_RATIO_OPTION_PAIRS, lang))
+    expression_value     = _label_to_value(expression,      _make_option_map(EXPRESSION_OPTION_PAIRS, lang))
+    gaze_value           = _label_to_value(gaze,            _make_option_map(GAZE_OPTION_PAIRS, lang))
+    body_type_value      = _label_to_value(body_type,       _make_option_map(BODY_TYPE_OPTION_PAIRS, lang))
+    skin_tone_value      = _label_to_value(skin_tone,       _make_option_map(SKIN_TONE_OPTION_PAIRS, lang))
+    hair_style_value     = _label_to_value(hair_style,      _make_option_map(HAIR_STYLE_OPTION_PAIRS, lang))
+    hair_color_value     = _label_to_value(hair_color,      _make_option_map(HAIR_COLOR_OPTION_PAIRS, lang))
     bangs_presence_value = _label_to_value(hair_bangs_presence, _make_option_map(BANGS_PRESENCE_OPTION_PAIRS, lang))
-    bangs_style_value = _label_to_value(hair_bangs_style, _make_option_map(BANGS_STYLE_OPTION_PAIRS, lang))
-    face_shape_value = _label_to_value(face_shape, _make_option_map(FACE_SHAPE_OPTION_PAIRS, lang))
-    eye_size_value = _label_to_value(eye_size, _make_option_map(EYE_SIZE_OPTION_PAIRS, lang))
-    nose_size_value = _label_to_value(nose_size, _make_option_map(NOSE_SIZE_OPTION_PAIRS, lang))
-    mouth_shape_value = _label_to_value(mouth_shape, _make_option_map(MOUTH_SHAPE_OPTION_PAIRS, lang))
-    cheek_fullness_value = _label_to_value(cheek_fullness, _make_option_map(CHEEK_FULLNESS_OPTION_PAIRS, lang))
-    jaw_width_value = _label_to_value(jaw_width, _make_option_map(JAW_WIDTH_OPTION_PAIRS, lang))
-    eye_color_value = _label_to_value(eye_color, _make_option_map(EYE_COLOR_OPTION_PAIRS, lang))
-    clothing_hint_value = _label_to_value(clothing_hint, _make_option_map(CLOTHING_HINT_OPTION_PAIRS, lang))
+    bangs_style_value    = _label_to_value(hair_bangs_style,    _make_option_map(BANGS_STYLE_OPTION_PAIRS, lang))
+    face_shape_value     = _label_to_value(face_shape,      _make_option_map(FACE_SHAPE_OPTION_PAIRS, lang))
+    eye_size_value       = _label_to_value(eye_size,        _make_option_map(EYE_SIZE_OPTION_PAIRS, lang))
+    nose_size_value      = _label_to_value(nose_size,       _make_option_map(NOSE_SIZE_OPTION_PAIRS, lang))
+    mouth_shape_value    = _label_to_value(mouth_shape,     _make_option_map(MOUTH_SHAPE_OPTION_PAIRS, lang))
+    cheek_fullness_value = _label_to_value(cheek_fullness,  _make_option_map(CHEEK_FULLNESS_OPTION_PAIRS, lang))
+    jaw_width_value      = _label_to_value(jaw_width,       _make_option_map(JAW_WIDTH_OPTION_PAIRS, lang))
+    eye_color_value      = _label_to_value(eye_color,       _make_option_map(EYE_COLOR_OPTION_PAIRS, lang))
+    clothing_hint_value  = _label_to_value(clothing_hint,   _make_option_map(CLOTHING_HINT_OPTION_PAIRS, lang))
+    appearance_values    = _labels_to_values(appearance_features, _make_option_map(APPEARANCE_OPTION_PAIRS, lang))
 
-    appearance_values = _labels_to_values(appearance_features, _make_option_map(APPEARANCE_OPTION_PAIRS, lang))
+    style_cfg = _load_style_config()
 
-    subject_line = _format_subject(
-        framing=framing_value,
+    # ── Artist reference (compact inline form) ────────────────────────────
+    artist_ref = ""
+    if include_style and artists:
+        clean = [a.strip() for a in artists if a.strip()]
+        if clean:
+            artist_ref = "in the style of " + ", ".join(clean)
+
+    # ── Compact character trait list ──────────────────────────────────────
+    char_traits = _build_char_traits(
         gender=gender_value,
         age=age_value,
         body_type=body_type_value,
@@ -731,31 +758,73 @@ def generate_character_prompt(
         eye_color=eye_color_value,
     )
 
-    ratio_line = ""
+    # ── Framing / composition ─────────────────────────────────────────────
+    framing_str = framing_value if (framing_value and framing_value != "Unspecified") else ""
+
+    # ── Aspect ratio ──────────────────────────────────────────────────────
+    ratio_str = ""
     if aspect_ratio_value and aspect_ratio_value != "Unspecified":
-        ratio_line = f"aspect ratio {aspect_ratio_value.split()[0]}."
+        ratio_str = f"aspect ratio {aspect_ratio_value.split()[0]}"
 
-    extra_line = extra_modifiers.strip() if include_extra_modifiers else ""
+    # ── Assemble ONE continuous comma-separated main block ─────────────────
+    # Structure mirrors the verified reference prompt from community testing:
+    #   [quality] → [year/style] → [artist ref] → [character traits] →
+    #   [90s technical descriptors] → [framing] → [background] →
+    #   [quality+atmosphere closing]
+    # Everything stays comma-separated so the model reads it as one directive.
+    main_parts: List[str] = []
 
-    parts = [subject_line]
-    if ratio_line:
-        parts.extend(["", ratio_line])
-    style_cfg = _load_style_config()
+    # 1. Quality prefix + era/style marker
     if include_style:
-        style_line = style_cfg["style"]
-        if artists:
-            artist_text = ", ".join([a.strip() for a in artists if a.strip()])
-            if artist_text:
-                style_line = (
-                    f"{style_line} strongly in the style of {artist_text}, "
-                    f"character design and lineart influenced by {artist_text}."
-                )
-        parts = [style_line, ""] + parts
-    if include_background:
-        parts.extend(["", style_cfg["background"]])
-    if include_mood:
-        parts.extend(["", style_cfg["mood"]])
-    if extra_line:
-        parts.extend(["", extra_line])
+        main_parts.append(style_cfg["style"].rstrip("."))   # "best quality, masterpiece, 1990s anime style"
+        if artist_ref:
+            main_parts.append(artist_ref)
 
-    return "\n".join(parts).strip() + "\n"
+    # 2. Character-specific traits from the form controls
+    if char_traits:
+        main_parts.append(char_traits)
+
+    # 3. Core 90s cel-animation technical descriptors
+    #    These are the proven phrases from Kalon.ai / Civitai community testing.
+    #    Placed AFTER character traits so the model sees:
+    #    "who this character is" → "how they should be rendered"
+    if include_style:
+        main_parts.extend([
+            "sharp angular facial features",
+            "large detailed eyes with multi-layered highlight reflections",
+            "slightly thick hand-drawn linework with natural weight variation",
+            "cel-shaded skin with visible paint edge between light and shadow zones",
+            "warm slightly muted color palette with limited saturation",
+            "hair rendered in blocky color sections with hard-edge highlights",
+            "soft film grain texture across entire frame",
+            "slight warm color cast",
+        ])
+
+    # 4. Composition / framing
+    if framing_str:
+        main_parts.append(framing_str)
+
+    # 5. Background
+    if include_background:
+        main_parts.append(style_cfg["background"].rstrip("."))
+
+    # 6. Quality + atmosphere closing (matches reference prompt tail)
+    if include_style:
+        main_parts.extend(["vintage anime production quality", "nostalgic atmosphere", "high resolution"])
+
+    # 7. Aspect ratio (appended last so it doesn't interrupt the visual description)
+    if ratio_str:
+        main_parts.append(ratio_str)
+
+    main_block = ", ".join(main_parts).rstrip("., ") + "."
+
+    # ── Additional sections (separate paragraphs) ─────────────────────────
+    sections: List[str] = [main_block]
+
+    if include_mood:
+        sections.append(style_cfg["mood"])
+
+    if include_extra_modifiers and extra_modifiers.strip():
+        sections.append(extra_modifiers.strip())
+
+    return "\n\n".join(sections).strip() + "\n"
