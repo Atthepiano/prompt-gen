@@ -1,3 +1,4 @@
 Pillow
 deep-translator
 requests
+PySide6>=6.6

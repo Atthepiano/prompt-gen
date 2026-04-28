@@ -688,8 +688,46 @@ class PromptApp:
         except Exception:
             return False
 
+    def _make_scrollable(self, tab_frame: ttk.Frame) -> ttk.Frame:
+        """Wrap *tab_frame* in a Canvas+Scrollbar so its content can scroll
+        vertically when the window is too short to show everything.
+
+        Returns the inner body frame that callers should use as *parent*
+        when building tab content.
+        """
+        canvas = tk.Canvas(tab_frame, borderwidth=0, highlightthickness=0)
+        vscroll = ttk.Scrollbar(tab_frame, orient=tk.VERTICAL, command=canvas.yview)
+        body = ttk.Frame(canvas)
+
+        # Keep scrollregion in sync with body size
+        body.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+
+        canvas_window = canvas.create_window((0, 0), window=body, anchor="nw")
+
+        # Stretch body horizontally to match canvas width so fill=tk.X children work
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfig(canvas_window, width=e.width),
+        )
+
+        canvas.configure(yscrollcommand=vscroll.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Bind mousewheel only while the pointer is inside this canvas
+        def _on_mousewheel(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        return body
+
     def setup_spaceship_tab(self):
-        parent = self.tab_spaceship
+        parent = self._make_scrollable(self.tab_spaceship)
         
         # Category
         ttk.Label(parent, text=self.t("Component Category:")).pack(anchor="w")
@@ -762,7 +800,7 @@ class PromptApp:
         self.update_subcategories()
 
     def setup_item_tab(self):
-        parent = self.tab_items
+        parent = self._make_scrollable(self.tab_items)
         
         ttk.Label(parent, text=self.t("Item Icon Generation"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
         
@@ -805,7 +843,7 @@ class PromptApp:
         self.btn_gen_items.pack(fill=tk.X, pady=(10, 0), ipady=10)
         
     def setup_character_tab(self):
-        parent = self.tab_characters
+        parent = self._make_scrollable(self.tab_characters)
         header = ttk.Frame(parent)
         header.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(header, text=self.t("Character Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w")
@@ -1126,7 +1164,7 @@ class PromptApp:
         self.schedule_character_prompt_update()
 
     def setup_clothing_tab(self):
-        parent = self.tab_clothing
+        parent = self._make_scrollable(self.tab_clothing)
         header = ttk.Frame(parent)
         header.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(header, text=self.t("Clothing Preset Generation"), font=("Arial", 14, "bold")).pack(anchor="w")
@@ -1810,7 +1848,7 @@ class PromptApp:
         self._library_preview_photo = None
 
     def setup_settings_tab(self):
-        parent = self.tab_settings
+        parent = self._make_scrollable(self.tab_settings)
 
         ttk.Label(parent, text=self.t("Settings Panel"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
 
@@ -1967,7 +2005,7 @@ class PromptApp:
         ttk.Button(parent, text=self.t("Save Settings"), command=self.save_settings).pack(fill=tk.X, pady=(10, 0), ipady=6)
 
     def setup_slicer_tab(self):
-        parent = self.tab_slicer
+        parent = self._make_scrollable(self.tab_slicer)
         
         ttk.Label(parent, text=self.t("Image Slicer (8x8 Grid)"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 5))
         
@@ -2870,21 +2908,8 @@ class PromptApp:
         parent = self.tab_mecha
         lang = self.ui_lang
 
-        # Use a scrollable canvas because there are now ~12 controls
-        outer = ttk.Frame(parent)
-        outer.pack(fill=tk.BOTH, expand=True)
-        canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
-        vscroll = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=canvas.yview)
-        body = ttk.Frame(canvas)
-        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=body, anchor="nw")
-        canvas.configure(yscrollcommand=vscroll.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vscroll.pack(side=tk.LEFT, fill=tk.Y)
-        # Mouse wheel scroll
-        def _on_mousewheel(e):
-            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
-        body.bind_all("<MouseWheel>", _on_mousewheel)
+        # Mecha tab has many controls — use a scrollable canvas
+        body = self._make_scrollable(parent)
 
         ttk.Label(body, text=self.t("Mecha Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 4))
         ttk.Label(body, text=self.t("Generate a 4-view bare-frame mecha reference sheet (90s OVA real-robot style)."),
@@ -3031,7 +3056,7 @@ class PromptApp:
     # =========================================================================
 
     def setup_mecha_part_tab(self):
-        parent = self.tab_mecha_part
+        parent = self._make_scrollable(self.tab_mecha_part)
         lang = self.ui_lang
 
         ttk.Label(parent, text=self.t("Mecha Component Prompt Generation"),
@@ -3187,7 +3212,7 @@ class PromptApp:
     # =========================================================================
 
     def setup_ship_tab(self):
-        parent = self.tab_ship
+        parent = self._make_scrollable(self.tab_ship)
         lang = self.ui_lang
 
         ttk.Label(parent, text=self.t("Spaceship Prompt Generation"), font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 4))
@@ -4241,4 +4266,3 @@ if __name__ == "__main__":
             messagebox.showerror("Critical Error", f"Application Crashing:\n{e}\n\nSee crash.log for details.")
         except Exception:
             pass
-

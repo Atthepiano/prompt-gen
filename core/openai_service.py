@@ -294,7 +294,7 @@ def generate_image_bytes(
     headers = _build_headers(api_key)
 
     try:
-        resp = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=480)
     except requests.RequestException as exc:
         raise OpenAIError(str(exc)) from exc
 
@@ -328,7 +328,7 @@ def _edit_with_references(prompt, api_key, model, base_url, size, quality, refer
         data["quality"] = quality
 
     try:
-        resp = requests.post(endpoint, data=data, files=files, headers=headers, timeout=180)
+        resp = requests.post(endpoint, data=data, files=files, headers=headers, timeout=480)
     except requests.RequestException as exc:
         raise OpenAIError(str(exc)) from exc
 
@@ -365,7 +365,7 @@ def edit_image_bytes(
         files = [("image", ("image.{}".format(ext), io.BytesIO(image_bytes), mime))]
         data = {"model": model, "prompt": prompt, "n": "1", "response_format": "url"}
         try:
-            resp = requests.post(endpoint, data=data, files=files, headers=headers, timeout=180)
+            resp = requests.post(endpoint, data=data, files=files, headers=headers, timeout=480)
         except requests.RequestException as exc:
             raise OpenAIError(str(exc)) from exc
         if resp.status_code != 200:
